@@ -17,7 +17,7 @@ export default function AddPatient() {
     ipdNumber: "",
     contact: "",
     consultDoctor: doctors[0],
-    date: new Date().toISOString().slice(0,10),
+    date: new Date().toISOString().slice(0, 10),
     chiefComplaints: "",
     historyPresenting: "",
     previousHistory: "",
@@ -49,15 +49,35 @@ export default function AddPatient() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const getNextNumber = (type) => {
+    const key = type === 'IPD' ? "lastIpdNumber" : "lastOpdNumber";
+    const lastNum = localStorage.getItem(key) || `${type}-1000`;
+    const nextNumber = parseInt(lastNum.split("-")[1]) + 1;
+    return `${type}-${nextNumber}`;
+  };
+
   useEffect(() => {
-    const lastIpd = localStorage.getItem("lastIpdNumber") || "IPD-1000";
-    const nextNumber = parseInt(lastIpd.split("-")[1]) + 1;
-    const newIpdNumber = `IPD-${nextNumber}`;
+    const newIpdNumber = getNextNumber('IPD');
     setFormData(prev => ({ ...prev, ipdNumber: newIpdNumber }));
     localStorage.setItem("lastIpdNumber", newIpdNumber);
   }, []);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "formType") {
+      setFormData(prev => {
+        let newNumber = prev.ipdNumber;
+        if (value === "IPD" && newNumber.startsWith("OPD-")) {
+          newNumber = newNumber.replace("OPD-", "IPD-");
+        } else if (value === "OPD" && newNumber.startsWith("IPD-")) {
+          newNumber = newNumber.replace("IPD-", "OPD-");
+        }
+        return { ...prev, formType: value, ipdNumber: newNumber };
+      });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
 
   const handleGoBack = () => {
     const from = location.state && location.state.from;
@@ -67,11 +87,9 @@ export default function AddPatient() {
   };
 
   const resetForm = () => {
-    const lastIpd = localStorage.getItem("lastIpdNumber") || "IPD-1000";
-    const nextNumber = parseInt(lastIpd.split("-")[1]) + 1;
-    const newIpdNumber = `IPD-${nextNumber}`;
-    localStorage.setItem("lastIpdNumber", newIpdNumber);
-    setFormData({ ...formData, name:'', address:'', age:'', gender:'', ipdNumber: newIpdNumber, contact:'', chiefComplaints:'', historyPresenting:'', previousHistory:'', personalHistory:'', allergicHistory:'', gcs:'', temp:'', pulse:'', bp:'', spo2:'', rbs:'', generalPhysicalExam:'', cvs:'', rs:'', pa:'', cns:'', provisionalDiagnosis:'', pallor:'', icterus:'', clubbing:'', cyanosis:'', edema:'', formType:'IPD', amount:0 });
+    const newNumber = getNextNumber('IPD');
+    localStorage.setItem("lastIpdNumber", newNumber);
+    setFormData({ ...formData, name: '', address: '', age: '', gender: '', ipdNumber: newNumber, contact: '', chiefComplaints: '', historyPresenting: '', previousHistory: '', personalHistory: '', allergicHistory: '', gcs: '', temp: '', pulse: '', bp: '', spo2: '', rbs: '', generalPhysicalExam: '', cvs: '', rs: '', pa: '', cns: '', provisionalDiagnosis: '', pallor: '', icterus: '', clubbing: '', cyanosis: '', edema: '', formType: 'IPD', amount: 0 });
     setEditingId(null);
   };
 
@@ -91,14 +109,25 @@ export default function AddPatient() {
   useEffect(() => {
     const handleEditInEffect = (patient) => {
       setEditingId(patient._id);
-      setFormData(prev => ({ ...prev, ...patient, date: patient.date ? new Date(patient.date).toISOString().slice(0,10) : new Date().toISOString().slice(0,10) }));
-      window.scrollTo({top:0, behavior:'smooth'});
+      setFormData(prev => ({ ...prev, ...patient, date: patient.date ? new Date(patient.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const incomingPatient = location?.state?.patient;
     const incomingFormType = location?.state?.formType;
-    if (incomingPatient) handleEditInEffect(incomingPatient);
-    if (incomingFormType) setFormData(prev => ({ ...prev, formType: incomingFormType }));
+    if (incomingPatient) {
+      handleEditInEffect(incomingPatient);
+    } else if (incomingFormType) {
+      setFormData(prev => {
+        let newNumber = prev.ipdNumber || `IPD-1001`;
+        if (incomingFormType === "IPD" && newNumber.startsWith("OPD-")) {
+          newNumber = newNumber.replace("OPD-", "IPD-");
+        } else if (incomingFormType === "OPD" && newNumber.startsWith("IPD-")) {
+          newNumber = newNumber.replace("IPD-", "OPD-");
+        }
+        return { ...prev, formType: incomingFormType, ipdNumber: newNumber };
+      });
+    }
   }, [location]);
 
   const handleSubmit = (e) => {
@@ -115,21 +144,21 @@ export default function AddPatient() {
         format: 'a4',
         compress: true
       });
-      
+
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const width = element.offsetWidth;
       const height = element.offsetHeight;
-      
+
       canvas.width = width * 2;
       canvas.height = height * 2;
       ctx.scale(2, 2);
-      
+
       const images = element.getElementsByTagName('img');
       for (let img of images) {
         img.style.display = 'none';
       }
-      
+
       html2canvas(element, {
         canvas: canvas,
         scale: 2,
@@ -138,10 +167,10 @@ export default function AddPatient() {
         const imgData = canvas.toDataURL('image/png');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
+
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`patient-${formData.name || 'unknown'}.pdf`);
-        
+
         for (let img of images) {
           img.style.display = '';
         }
@@ -156,7 +185,7 @@ export default function AddPatient() {
       <Header />
       <div className="max-w-6xl mx-auto bg-white mt-8 p-6 rounded shadow">
         <h3 className="text-center font-semibold mb-3 text-lg">{formData.formType === 'OPD' ? 'OPD FILE' : 'ADMISSION FILE (IPD)'}</h3>
-        
+
         <div className="flex justify-center mb-4">
           <label className="mr-2 font-semibold">Form Type:</label>
           <select name="formType" value={formData.formType} onChange={handleChange} className="border p-2 rounded bg-white">
@@ -245,8 +274,8 @@ export default function AddPatient() {
               </select>
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">IPD Number :</label>
-              <input name="ipdNumber" value={formData.ipdNumber} onChange={handleChange} className="w-full border p-2 rounded" placeholder="IPD-1001" />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'OPD Number :' : 'IPD Number :'}</label>
+              <input name="ipdNumber" value={formData.ipdNumber} onChange={handleChange} className="w-full border p-2 rounded" placeholder={formData.formType === 'OPD' ? 'OPD-1001' : 'IPD-1001'} />
             </div>
             <div className="mb-3">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Contact :</label>
