@@ -78,19 +78,23 @@ const Header = () => {
   };
 
   return (
-    <div className="sticky top-0 z-50 py-2 bg-white border-b-8 border-green-800 h-24 w-full">
-      <div className="container mx-8 flex justify-between items-center">
-        <div className="absolute left-0 flex items-center">
+    <div className="py-2 bg-white border-b-8 border-green-800 w-full">
+      <div className="flex justify-between items-center px-8 w-full max-w-full">
+        {/* Left Logo */}
+        <div className="flex-shrink-0">
           <img src="/images/medicallogo.jpg" alt="Doctor Logo" className="w-20" />
         </div>
-        <div className="px-12 text-center">
+
+        {/* Center Title */}
+        <div className="flex-grow text-center px-4">
           <h2 className="text-4xl font-bold">PRASHANTH GENERAL HOSPITAL</h2>
-          <p className="text-xl px-4">
+          <p className="text-xl">
             <b>SRS complex, Bhagyanagar circle, Kinnal road Koppal</b> Contact: 7204158789
           </p>
         </div>
 
-        <div className="absolute right-0">
+        {/* Right Profile Menu */}
+        <div className="flex-shrink-0 relative z-10" data-html2canvas-ignore="true">
           <div className="cursor-pointer" onClick={toggleProfileCard}>
             <img
               src="/images/m_002.png"

@@ -135,231 +135,310 @@ export default function AddPatient() {
     savePatient();
   };
 
-  const generatePDF = () => {
-    try {
-      const element = document.getElementById("bill");
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
+  const generatePDF = async () => {
+    const allInputs = document.querySelectorAll('#bill textarea, #bill input, #bill select');
+    // Store original inline styles to revert later
+    allInputs.forEach(el => {
+      el.dataset.origHeight = el.style.height || '';
+      el.dataset.origOverflow = el.style.overflow || '';
+    });
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const width = element.offsetWidth;
-      const height = element.offsetHeight;
-
-      canvas.width = width * 2;
-      canvas.height = height * 2;
-      ctx.scale(2, 2);
-
-      const images = element.getElementsByTagName('img');
-      for (let img of images) {
-        img.style.display = 'none';
+    const pages = [document.getElementById("pdf-page-1")];
+    if (formData.formType === 'IPD') {
+      const p2 = document.getElementById("pdf-page-2");
+      if (p2) {
+        document.getElementById("letter-head-2").style.display = "block";
+        pages.push(p2);
       }
+    }
 
-      html2canvas(element, {
-        canvas: canvas,
-        scale: 2,
-        logging: false
-      }).then((canvas) => {
+    try {
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+
+      for (let i = 0; i < pages.length; i++) {
+        const element = pages[i];
+        if (!element) continue;
+
+        const originalWidth = element.style.width;
+        // Lock width to standard A4 (prevents responsive grid shrinking issues later)
+        element.style.width = '210mm';
+        element.style.margin = '0 auto';
+
+        // Crucial: Calculate height AFTER setting width. If width shrinks, text line-wraps down.
+        // Expanding scrollHeight here prevents the text from cropping at the bottom.
+        const pageElements = element.querySelectorAll('textarea, input, select');
+        pageElements.forEach(el => {
+          el.style.height = 'auto';
+          el.style.height = (el.scrollHeight + 10) + 'px';
+          el.style.overflow = 'visible';
+        });
+
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          windowWidth: element.scrollWidth,
+          y: 0,
+          x: 0,
+          scrollY: 0
+        });
+
+        // Revert 
+        element.style.width = originalWidth;
+        element.style.margin = '';
+
         const imgData = canvas.toDataURL('image/png');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
+        if (i > 0) pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`patient-${formData.name || 'unknown'}.pdf`);
+      }
 
-        for (let img of images) {
-          img.style.display = '';
-        }
-      });
+      pdf.save(`patient-${formData.name || 'unknown'}.pdf`);
     } catch (err) {
       alert('PDF generation failed: ' + err.message);
+    } finally {
+      // Revert text heights and layout styles
+      allInputs.forEach(el => {
+        el.style.height = el.dataset.origHeight;
+        el.style.overflow = el.dataset.origOverflow;
+      });
+
+      if (formData.formType === 'IPD') {
+        const lh2 = document.getElementById("letter-head-2");
+        if (lh2) lh2.style.display = "none";
+      }
     }
   };
 
+  const HospitalLetterHead = () => (
+    <div className="flex justify-between items-center border-b-2 border-green-800 pb-2 mb-4">
+      <div className="flex-shrink-0">
+        <img src="/images/medicallogo.jpg" alt="Doctor Logo" className="w-16" />
+      </div>
+      <div className="flex-grow text-center px-4">
+        <h2 className="text-2xl font-bold">PRASHANTH GENERAL HOSPITAL</h2>
+        <p className="text-sm">
+          <b>SRS complex, Bhagyanagar circle, Kinnal road Koppal</b> Contact: 7204158789
+        </p>
+      </div>
+    </div>
+  );
+
   return (
-    <div id="bill">
-      <Header />
-      <div className="max-w-6xl mx-auto bg-white mt-8 p-6 rounded shadow">
-        <h3 className="text-center font-semibold mb-3 text-lg">{formData.formType === 'OPD' ? 'OPD FILE' : 'ADMISSION FILE (IPD)'}</h3>
+    <div className="min-h-screen bg-gray-50 pb-10">
+      {/* APP NAVBAR (Rendered strictly once at the top of the entire screen) */}
+      <div className="no-print">
+        <Header />
+      </div>
 
-        <div className="flex justify-center mb-4">
-          <label className="mr-2 font-semibold">Form Type:</label>
-          <select name="formType" value={formData.formType} onChange={handleChange} className="border p-2 rounded bg-white">
-            <option value="IPD">IPD</option>
-            <option value="OPD">OPD</option>
-          </select>
-        </div>
+      <div id="bill" className="mx-auto bg-white mt-8 mb-8 shadow-lg print:shadow-none border" style={{ maxWidth: '210mm', width: '100%' }}>
+        {/* --- PAGE 1 --- */}
+        <div id="pdf-page-1" className="p-8 pb-4">
+          {/* This letterhead belongs to the printed document */}
+          <HospitalLetterHead />
 
-        <div className="grid grid-cols-3 gap-4">
-          {/* Left Column */}
-          <div className="col-span-2">
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Name :</label>
-              <input name="name" value={formData.name} onChange={handleChange} className="w-full border p-3 rounded" />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Address :</label>
-              <textarea name="address" value={formData.address} onChange={handleChange} className="w-full border p-3 rounded h-20" />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Chief Complaints :</label>
-              <textarea name="chiefComplaints" value={formData.chiefComplaints} onChange={handleChange} className="w-full border p-3 rounded h-20" />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{formData.formType === 'OPD' ? 'Positive Findings' : 'History of Presenting Illness'} :</label>
-              <textarea name="historyPresenting" value={formData.historyPresenting} onChange={handleChange} className="w-full border p-3 rounded h-24" />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{formData.formType === 'OPD' ? 'Provisional Diagnosis' : 'Previous History'} :</label>
-              <textarea name="previousHistory" value={formData.previousHistory} onChange={handleChange} className="w-full border p-3 rounded h-20" />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{formData.formType === 'OPD' ? 'Investigation' : 'Personal History'} :</label>
-              <textarea name="personalHistory" value={formData.personalHistory} onChange={handleChange} className="w-full border p-3 rounded h-20" />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{formData.formType === 'OPD' ? 'Advice' : 'Allergic History'} :</label>
-              <textarea name="allergicHistory" value={formData.allergicHistory} onChange={handleChange} className="w-full border p-3 rounded h-20" />
-            </div>
+          <h3 className="text-center font-semibold mb-3 text-lg mt-2 uppercase text-green-900 border-b pb-2">{formData.formType === 'OPD' ? 'OPD FILE' : 'ADMISSION FILE (IPD) - PAGE 1'}</h3>
 
-            {/* IPD-only left fields */}
-            {formData.formType === 'IPD' && (
-              <div className="border-t pt-4 mt-4">
-                <h4 className="font-semibold mb-3">Physical Examination (Left)</h4>
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">General Physical Examination :</label>
-                  <textarea name="generalPhysicalExam" value={formData.generalPhysicalExam} onChange={handleChange} className="w-full border p-2 rounded h-16" />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">CVS :</label>
-                  <textarea name="cvs" value={formData.cvs} onChange={handleChange} className="w-full border p-2 rounded h-14" />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">RS :</label>
-                  <textarea name="rs" value={formData.rs} onChange={handleChange} className="w-full border p-2 rounded h-14" />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">PA :</label>
-                  <textarea name="pa" value={formData.pa} onChange={handleChange} className="w-full border p-2 rounded h-14" />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">CNS :</label>
-                  <textarea name="cns" value={formData.cns} onChange={handleChange} className="w-full border p-2 rounded h-14" />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Provisional Diagnosis :</label>
-                  <textarea name="provisionalDiagnosis" value={formData.provisionalDiagnosis} onChange={handleChange} className="w-full border p-2 rounded h-16" />
-                </div>
-              </div>
-            )}
+          <div className="flex justify-center mb-4 no-print" data-html2canvas-ignore="true">
+            <label className="mr-2 font-semibold">Form Type:</label>
+            <select name="formType" value={formData.formType} onChange={handleChange} className="border p-2 rounded bg-gray-50">
+              <option value="IPD">IPD</option>
+              <option value="OPD">OPD</option>
+            </select>
           </div>
 
-          {/* Right Column */}
-          <div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Age :</label>
-              <input name="age" value={formData.age} onChange={handleChange} className="w-full border p-2 rounded" />
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Gender :</label>
-              <select name="gender" value={formData.gender} onChange={handleChange} className="w-full border p-2 rounded">
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'OPD Number :' : 'IPD Number :'}</label>
-              <input name="ipdNumber" value={formData.ipdNumber} onChange={handleChange} className="w-full border p-2 rounded" placeholder={formData.formType === 'OPD' ? 'OPD-1001' : 'IPD-1001'} />
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Contact :</label>
-              <input name="contact" value={formData.contact} onChange={handleChange} className="w-full border p-2 rounded" type="tel" />
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Amount :</label>
-              <input name="amount" value={formData.amount} onChange={handleChange} className="w-full border p-2 rounded" type="number" />
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Consultant Doctor :</label>
-              <select name="consultDoctor" value={formData.consultDoctor} onChange={handleChange} className="w-full border p-2 rounded">
-                {doctors.map((doctor) => (
-                  <option key={doctor} value={doctor}>{doctor}</option>
-                ))}
-              </select>
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Date :</label>
-              <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full border p-2 rounded" />
-            </div>
-
-            <div className="border-t pt-3 mt-4">
-              <h4 className="font-semibold mb-3 text-sm">Vital Signs</h4>
+          <div className="grid grid-cols-3 gap-4">
+            {/* Left Column Page 1 */}
+            <div className="col-span-2">
               <div className="mb-2">
-                <label className="text-xs font-semibold text-gray-700">GCS :</label>
-                <input name="gcs" value={formData.gcs} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Name :</label>
+                <input name="name" value={formData.name} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" />
               </div>
               <div className="mb-2">
-                <label className="text-xs font-semibold text-gray-700">Temp :</label>
-                <input name="temp" value={formData.temp} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Address :</label>
+                <textarea name="address" value={formData.address} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
               </div>
               <div className="mb-2">
-                <label className="text-xs font-semibold text-gray-700">Pulse :</label>
-                <input name="pulse" value={formData.pulse} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Chief Complaints :</label>
+                <textarea name="chiefComplaints" value={formData.chiefComplaints} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
               </div>
               <div className="mb-2">
-                <label className="text-xs font-semibold text-gray-700">BP :</label>
-                <input name="bp" value={formData.bp} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'Positive Findings' : 'History of Presenting Illness'} :</label>
+                <textarea name="historyPresenting" value={formData.historyPresenting} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-20" />
               </div>
               <div className="mb-2">
-                <label className="text-xs font-semibold text-gray-700">Spo2 :</label>
-                <input name="spo2" value={formData.spo2} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'Provisional Diagnosis :' : 'Previous History :'}</label>
+                <textarea name="previousHistory" value={formData.previousHistory} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
               </div>
               <div className="mb-2">
-                <label className="text-xs font-semibold text-gray-700">RBS :</label>
-                <input name="rbs" value={formData.rbs} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'Investigation :' : 'Personal History :'}</label>
+                <textarea name="personalHistory" value={formData.personalHistory} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
+              </div>
+              <div className="mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'Advice :' : 'Allergic History :'}</label>
+                <textarea name="allergicHistory" value={formData.allergicHistory} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
               </div>
             </div>
 
-            {/* IPD-only right fields */}
-            {formData.formType === 'IPD' && (
-              <div className="border-t pt-3 mt-4">
-                <h4 className="font-semibold mb-3 text-sm">Physical Examination (Right)</h4>
-                <div className="mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Pallor :</label>
-                  <input name="pallor" value={formData.pallor} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+            {/* Right Column Page 1 */}
+            <div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Age :</label>
+                  <input name="age" value={formData.age} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" />
                 </div>
-                <div className="mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Icterus :</label>
-                  <input name="icterus" value={formData.icterus} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
-                </div>
-                <div className="mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Clubbing :</label>
-                  <input name="clubbing" value={formData.clubbing} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
-                </div>
-                <div className="mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Cyanosis :</label>
-                  <input name="cyanosis" value={formData.cyanosis} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
-                </div>
-                <div className="mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Edema :</label>
-                  <input name="edema" value={formData.edema} onChange={handleChange} className="w-full border p-1 rounded text-sm" />
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Gender :</label>
+                  <select name="gender" value={formData.gender} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded">
+                    <option value="">Sel</option>
+                    <option value="Male">M</option>
+                    <option value="Female">F</option>
+                    <option value="Other">O</option>
+                  </select>
                 </div>
               </div>
-            )}
+              <div className="mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'OPD Number :' : 'IPD Number :'}</label>
+                <input name="ipdNumber" value={formData.ipdNumber} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" placeholder={formData.formType === 'OPD' ? 'OPD-1001' : 'IPD-1001'} />
+              </div>
+              <div className="mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Contact :</label>
+                <input name="contact" value={formData.contact} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" type="tel" />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Amount :</label>
+                  <input name="amount" value={formData.amount} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" type="number" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Date :</label>
+                  <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" />
+                </div>
+              </div>
+              <div className="mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Consultant Doctor :</label>
+                <select name="consultDoctor" value={formData.consultDoctor} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded">
+                  {doctors.map((doctor) => (
+                    <option key={doctor} value={doctor}>{doctor}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="border-t pt-2 mt-2">
+                <h4 className="font-semibold mb-2 text-sm text-center">Vital Signs</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="mb-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">GCS :</label>
+                    <input name="gcs" value={formData.gcs} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Temp :</label>
+                    <input name="temp" value={formData.temp} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Pulse :</label>
+                    <input name="pulse" value={formData.pulse} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">BP :</label>
+                    <input name="bp" value={formData.bp} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Spo2 :</label>
+                    <input name="spo2" value={formData.spo2} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">RBS :</label>
+                    <input name="rbs" value={formData.rbs} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-center gap-3 mt-6 no-print">
-          <button type="submit" onClick={handleSubmit} className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600">{editingId ? 'Update' : 'Save'}</button>
-          <button type="button" onClick={generatePDF} className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Download PDF</button>
-          <button type="button" onClick={handleGoBack} className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">Back</button>
+        {/* --- PAGE 2 FOR IPD ONLY --- */}
+        {formData.formType === 'IPD' && (
+          <div id="pdf-page-2" className="px-8 pb-8 pt-2">
+
+            {/* Hidden on frontend, only displays inside PDF generation */}
+            <div id="letter-head-2" style={{ display: 'none' }}>
+              <div className="mt-8 pt-8"></div> {/* Blank space for clean cut before letterhead */}
+              <HospitalLetterHead />
+              <h3 className="text-center font-semibold mb-3 text-lg mt-2 uppercase text-green-900 border-b pb-2">ADMISSION FILE (IPD) - CONTINUED</h3>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {/* Left Column Page 2 */}
+              <div className="col-span-2">
+                <div>
+                  <h4 className="font-semibold mb-3">Physical Examination (Left)</h4>
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 pb-1 leading-relaxed">General Physical Examination :</label>
+                    <textarea name="generalPhysicalExam" value={formData.generalPhysicalExam} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 pb-1 leading-relaxed">CVS :</label>
+                    <textarea name="cvs" value={formData.cvs} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-14" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 pb-1 leading-relaxed">RS :</label>
+                    <textarea name="rs" value={formData.rs} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-14" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 pb-1 leading-relaxed">PA :</label>
+                    <textarea name="pa" value={formData.pa} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-14" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 pb-1 leading-relaxed">CNS :</label>
+                    <textarea name="cns" value={formData.cns} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-14" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 pb-1 leading-relaxed">Provisional Diagnosis :</label>
+                    <textarea name="provisionalDiagnosis" value={formData.provisionalDiagnosis} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded h-16" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column Page 2 */}
+              <div>
+                <div className="mt-4">
+                  <h4 className="font-semibold mb-3 text-sm text-center">Physical Examination (Right)</h4>
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 pb-1 leading-relaxed">Pallor :</label>
+                    <input name="pallor" value={formData.pallor} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 pb-1 leading-relaxed">Icterus :</label>
+                    <input name="icterus" value={formData.icterus} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 pb-1 leading-relaxed">Clubbing :</label>
+                    <input name="clubbing" value={formData.clubbing} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 pb-1 leading-relaxed">Cyanosis :</label>
+                    <input name="cyanosis" value={formData.cyanosis} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 pb-1 leading-relaxed">Edema :</label>
+                    <input name="edema" value={formData.edema} onChange={handleChange} className="w-full border border-gray-300 px-1 pt-1 pb-2 rounded text-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Global Action Buttons */}
+        <div className="flex justify-center gap-3 mt-8 pb-8 no-print" data-html2canvas-ignore="true">
+          <button type="submit" onClick={handleSubmit} className="px-8 py-3 bg-green-600 font-bold shadow-md text-white rounded hover:bg-green-700">{editingId ? 'Update Record' : 'Save Record'}</button>
+          <button type="button" onClick={generatePDF} className="px-8 py-3 bg-blue-600 font-bold shadow-md text-white rounded hover:bg-blue-700">Download PDF</button>
+          <button type="button" onClick={handleGoBack} className="px-8 py-3 bg-gray-500 font-bold shadow-md text-white rounded hover:bg-gray-600">Back</button>
         </div>
+
       </div>
     </div>
   );
