@@ -15,6 +15,8 @@ const MedicalBillSchema = new mongoose.Schema({
       medicineId: mongoose.Schema.Types.ObjectId,
       uniqueCode: String,
       name: String,
+      cgst: Number,
+      sgst: Number,
     }
   ],
   total: Number,

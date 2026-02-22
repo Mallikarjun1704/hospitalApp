@@ -34,6 +34,7 @@ const Login = ({ onLogin, onForgotPassword }) => {
       if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
       if (data.userId) localStorage.setItem("userId", data.userId);
       if (data.userName) localStorage.setItem("userName", data.userName);
+      if (data.userType) localStorage.setItem("userType", data.userType);
       // Notify parent that login succeeded
       if (onLogin) onLogin();
     } catch (err) {

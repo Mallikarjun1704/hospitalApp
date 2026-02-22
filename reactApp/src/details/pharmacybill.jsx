@@ -15,9 +15,11 @@ const Medical = () => {
     ipdNumber: '',
     dischargeDate: new Date().toLocaleDateString(),
     services: [
-      { no: 1, service: 'Consultation', price: 150, quantity: 1, total: 150 },
+      { no: 1, service: 'Consultation', price: 150, quantity: 1, cgst: 0, sgst: 0, total: 150 },
     ],
     total: '',
+    totalCgst: 0,
+    totalSgst: 0,
     advancePayment: 'nil',
     netPayable: '',
   });
@@ -54,10 +56,12 @@ const Medical = () => {
     const updatedServices = [...data.services];
     updatedServices[index][field] = value;
 
-    if (field === 'price' || field === 'quantity') {
+    if (field === 'price' || field === 'quantity' || field === 'cgst' || field === 'sgst') {
       const price = parseFloat(updatedServices[index].price) || 0;
       const quantity = parseInt(updatedServices[index].quantity) || 0;
-      updatedServices[index].total = price * quantity || 0;
+      const cgst = parseFloat(updatedServices[index].cgst) || 0;
+      const sgst = parseFloat(updatedServices[index].sgst) || 0;
+      updatedServices[index].total = (price * quantity) + cgst + sgst || 0;
     }
 
     const updatedTotal = updatedServices.reduce(
@@ -65,7 +69,17 @@ const Medical = () => {
       0
     );
 
-    setData({ ...data, services: updatedServices, total: updatedTotal, netPayable: updatedTotal });
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.cgst) || 0), 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.sgst) || 0), 0);
+
+    setData({
+      ...data,
+      services: updatedServices,
+      total: updatedTotal,
+      totalCgst: updatedTotalCgst,
+      totalSgst: updatedTotalSgst,
+      netPayable: updatedTotal
+    });
   };
 
   const handleSelectByCode = (index, val) => {
@@ -82,7 +96,16 @@ const Medical = () => {
     }
 
     const updatedTotal = updatedServices.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-    setData({ ...data, services: updatedServices, total: updatedTotal, netPayable: updatedTotal });
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (Number(item.sgst) || 0), 0);
+    setData({
+      ...data,
+      services: updatedServices,
+      total: updatedTotal,
+      totalCgst: updatedTotalCgst,
+      totalSgst: updatedTotalSgst,
+      netPayable: updatedTotal
+    });
   };
 
   const saveBill = async () => {
@@ -101,7 +124,17 @@ const Medical = () => {
         ipdNumber: data.ipdNumber,
         admissionDate: data.admissionDate,
         dischargeDate: data.dischargeDate,
-        services: data.services.map(s => ({ medicineId: s.medicineId, service: s.service, uniqueCode: s.uniqueCode || '', name: s.name || '', price: Number(s.price) || 0, quantity: Number(s.quantity) || 0, total: Number(s.total) || 0 })),
+        services: data.services.map(s => ({
+          medicineId: s.medicineId,
+          service: s.service,
+          uniqueCode: s.uniqueCode || '',
+          name: s.name || '',
+          price: Number(s.price) || 0,
+          quantity: Number(s.quantity) || 0,
+          cgst: Number(s.cgst) || 0,
+          sgst: Number(s.sgst) || 0,
+          total: Number(s.total) || 0
+        })),
         total: Number(data.total) || 0,
         netPayable: Number(data.netPayable) || Number(data.total) || 0,
         advancePayment: Number(data.advancePayment) || 0,
@@ -124,12 +157,12 @@ const Medical = () => {
       quantity: '',
       total: '',
     };
-  
+
     setData({ ...data, services: [...data.services, newRow] });
   };
-  
+
   const removeLastRow = () => {
-    if (data.services.length >0) {
+    if (data.services.length > 0) {
       const updatedServices = data.services.slice(0, -1);
 
       const updatedTotal = updatedServices.reduce(
@@ -140,72 +173,72 @@ const Medical = () => {
       setData({ ...data, services: updatedServices, total: updatedTotal, netPayable: updatedTotal });
     }
   }
-  
 
-    const generatePDF = () => {
-        const doc = new jsPDF({
-          orientation: 'portrait',
-          unit: 'px',
-          format: 'a2',
-        });
-    
-        const billContent = document.querySelector('#bill');
-        const noPrintElements = document.querySelectorAll('.no-print');
-    
-        noPrintElements.forEach((el) => {
-          el.style.display = 'none';
-        });
-    
-        const inputs = billContent.querySelectorAll('input');
-        inputs.forEach((input) => {
-        const span = document.createElement('span');
-        span.textContent = input.value;
-        input.parentNode.replaceChild(span, input);
-      });
-    
-        const selects = billContent.querySelectorAll('select');
-        selects.forEach((select) => {
-        const span = document.createElement('span');
-        span.textContent = select.options[select.selectedIndex].text;
-        select.parentNode.replaceChild(span, select);
-      });
-    
+
+  const generatePDF = () => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: 'a2',
+    });
+
+    const billContent = document.querySelector('#bill');
+    const noPrintElements = document.querySelectorAll('.no-print');
+
+    noPrintElements.forEach((el) => {
+      el.style.display = 'none';
+    });
+
+    const inputs = billContent.querySelectorAll('input');
+    inputs.forEach((input) => {
+      const span = document.createElement('span');
+      span.textContent = input.value;
+      input.parentNode.replaceChild(span, input);
+    });
+
+    const selects = billContent.querySelectorAll('select');
+    selects.forEach((select) => {
+      const span = document.createElement('span');
+      span.textContent = select.options[select.selectedIndex].text;
+      select.parentNode.replaceChild(span, select);
+    });
+
+    doc.html(billContent, {
+      callback: (doc) => {
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+
         doc.html(billContent, {
-          callback: (doc) => {
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-    
-            doc.html(billContent, {
-              x: 10,
-              y: pageHeight / 2,
-              callback: () => {
-                noPrintElements.forEach((el) => {
-                  el.style.display = '';
-                });
-                doc.save('Medi-Mallikarjun-92.pdf');
-              },
-              width:  pageWidth - 20,
-              windowWidth:  pageWidth,
-            });
-          },
           x: 10,
-          y: 10,
-          width: doc.internal.pageSize.width - 20,
-          windowWidth: doc.internal.pageSize.width,
+          y: pageHeight / 2,
+          callback: () => {
+            noPrintElements.forEach((el) => {
+              el.style.display = '';
+            });
+            doc.save('Medi-Mallikarjun-92.pdf');
+          },
+          width: pageWidth - 20,
+          windowWidth: pageWidth,
         });
-    
-        const newPatientId = patientIdCounter + 1;
-        setPatientIdCounter(newPatientId);
-        localStorage.setItem('patientIdCounter', newPatientId.toString());
+      },
+      x: 10,
+      y: 10,
+      width: doc.internal.pageSize.width - 20,
+      windowWidth: doc.internal.pageSize.width,
+    });
 
-        setData({ ...data, ipdNumber: newPatientId });
-      };
+    const newPatientId = patientIdCounter + 1;
+    setPatientIdCounter(newPatientId);
+    localStorage.setItem('patientIdCounter', newPatientId.toString());
 
-      const navigate = useNavigate();
-      const handleGoBack = (event) => {
-        // Prevent navigation
-        navigate(-1); // Go to previous page
-      };
+    setData({ ...data, ipdNumber: newPatientId });
+  };
+
+  const navigate = useNavigate();
+  const handleGoBack = (event) => {
+    // Prevent navigation
+    navigate(-1); // Go to previous page
+  };
 
   return (
     <div>
@@ -214,7 +247,7 @@ const Medical = () => {
         <div className="flex flex-col space-y-5 px-2">
           <h2 className="font-bold text-lg text-center">Cash Bill</h2>
           <div className="grid grid-cols-3 gap-2 mt-4">
-            {[ 
+            {[
               { label: 'Name', field: 'name', PlaceHolder: 'Enter The Name' },
               { label: 'Contact', field: 'contact', PlaceHolder: 'Enter Contact Number' },
               { label: 'Age', field: 'age', PlaceHolder: 'Enter The Age' },
@@ -243,6 +276,8 @@ const Medical = () => {
                 <th className="p-2 border text-white">Name</th>
                 <th className="p-2 border text-white">Price</th>
                 <th className="p-2 border text-white">Quantity</th>
+                <th className="p-2 border text-white">CGST</th>
+                <th className="p-2 border text-white">SGST</th>
                 <th className="p-2 border text-white">Total (Rupees)</th>
               </tr>
             </thead>
@@ -280,6 +315,22 @@ const Medical = () => {
                     />
                   </td>
                   <td className="p-2 border">
+                    <input
+                      type="number"
+                      value={service.cgst}
+                      onChange={(e) => handleServiceChange(index, 'cgst', e.target.value)}
+                      className="w-full p-1 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="p-2 border">
+                    <input
+                      type="number"
+                      value={service.sgst}
+                      onChange={(e) => handleServiceChange(index, 'sgst', e.target.value)}
+                      className="w-full p-1 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="p-2 border">
                     <input type="text" value={service.total} readOnly className="w-full p-1" />
                   </td>
                 </tr>
@@ -287,6 +338,14 @@ const Medical = () => {
             </tbody>
           </table>
           <div className="mt-4">
+            <p>
+              <b>Total CGST:</b>
+              <input type="number" value={data.totalCgst} readOnly className="ml-2 p-1 border-gray-300 rounded" />
+            </p>
+            <p>
+              <b>Total SGST:</b>
+              <input type="number" value={data.totalSgst} readOnly className="ml-2 p-1 border-gray-300 rounded" />
+            </p>
             <p>
               <b>Total:</b>
               <input
@@ -318,36 +377,36 @@ const Medical = () => {
         </div>
       </div>
       <div className="flex justify-center">
-         <button
+        <button
           onClick={addNewRow}
           className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 no-print"
-          >
-            Add New Row
-         </button>
-         <button 
-         onClick={removeLastRow}
-         className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 no-print ml-4"
-         >
-           Remove Last Row
-         </button>
-         <button 
-         onClick={generatePDF}
-         className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
-         >
-           Download PDF
-         </button>
-         <button 
-         onClick={saveBill}
-         className="px-6 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 no-print ml-4"
-         >
-           Save Bill
-         </button>
-         <button 
-         onClick={handleGoBack}
-         className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
-         >
-           Back
-         </button>
+        >
+          Add New Row
+        </button>
+        <button
+          onClick={removeLastRow}
+          className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 no-print ml-4"
+        >
+          Remove Last Row
+        </button>
+        <button
+          onClick={generatePDF}
+          className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
+        >
+          Download PDF
+        </button>
+        <button
+          onClick={saveBill}
+          className="px-6 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 no-print ml-4"
+        >
+          Save Bill
+        </button>
+        <button
+          onClick={handleGoBack}
+          className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
+        >
+          Back
+        </button>
       </div>
     </div>
   );

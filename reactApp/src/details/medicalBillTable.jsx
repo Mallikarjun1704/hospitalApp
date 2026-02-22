@@ -5,12 +5,21 @@ import { useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
 
+const formatDate = (date) => {
+  try {
+    return new Date(date).toLocaleDateString('en-GB');
+  } catch (e) {
+    return '-';
+  }
+};
+
 const MedicalBillTable = () => {
   const navigate = useNavigate();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(false);
   const [contactFilter, setContactFilter] = useState('');
   const [expanded, setExpanded] = useState({});
+  const isAdmin = localStorage.getItem('userType') === 'admin';
 
   const fetchBills = async (contact) => {
     setLoading(true);
@@ -59,30 +68,42 @@ const MedicalBillTable = () => {
                 <th className="p-2 border">Name</th>
                 <th className="p-2 border">Contact</th>
                 <th className="p-2 border">Total</th>
+                <th className="p-2 border">CGST</th>
+                <th className="p-2 border">SGST</th>
+                <th className="p-2 border">Advance</th>
+                <th className="p-2 border">Net Payable</th>
                 <th className="p-2 border">Date</th>
                 <th className="p-2 border">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={6} className="p-4">Loading...</td></tr>}
-              {!loading && bills.length === 0 && <tr><td colSpan={6} className="p-4">No bills found</td></tr>}
+              {loading && (
+                <tr><td colSpan={10} className="p-4">Loading...</td></tr>
+              )}
+              {!loading && bills.length === 0 && (
+                <tr><td colSpan={10} className="p-4">No bills found</td></tr>
+              )}
               {bills.map((b, i) => (
                 <>
-                <tr key={b._id} className="border-t">
-                  <td className="p-2 border">{i+1}</td>
-                  <td className="p-2 border">{b.name}</td>
-                  <td className="p-2 border">{b.contact}</td>
-                  <td className="p-2 border">{b.total}</td>
-                  <td className="p-2 border">{b.date ? new Date(b.date).toLocaleDateString() : '-'}</td>
+                  <tr key={b._id} className="border-t">
+                    <td className="p-2 border">{i + 1}</td>
+                    <td className="p-2 border">{b.name}</td>
+                    <td className="p-2 border">{b.contact}</td>
+                    <td className="p-2 border">{b.total || 0}</td>
+                    <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0)}</td>
+                    <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0)}</td>
+                    <td className="p-2 border">{b.advancePayment || 0}</td>
+                    <td className="p-2 border">{b.netPayable || 0}</td>
+                    <td className="p-2 border">{b.date ? formatDate(new Date(b.date)) : '-'}</td>
                     <td className="p-2 border space-x-2">
-                      <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>
+                      {isAdmin && <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>}
                       <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => del(b._id)}>Delete</button>
                       <button className="px-2 py-1 bg-gray-300 rounded" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
                     </td>
                   </tr>
                   {expanded[b._id] && (
                     <tr key={`${b._id}-details`} className="bg-gray-50">
-                      <td colSpan={6} className="p-2">
+                      <td colSpan={8} className="p-2">
                         <div className="overflow-auto">
                           <table className="w-full text-left border border-gray-200">
                             <thead>
@@ -92,17 +113,21 @@ const MedicalBillTable = () => {
                                 <th className="p-2 border">Name</th>
                                 <th className="p-2 border">Price</th>
                                 <th className="p-2 border">Qty</th>
+                                <th className="p-2 border">CGST</th>
+                                <th className="p-2 border">SGST</th>
                                 <th className="p-2 border">Total</th>
                               </tr>
                             </thead>
                             <tbody>
                               {(b.services || []).map((s, idx) => (
                                 <tr key={`${b._id}-s-${idx}`}>
-                                  <td className="p-2 border">{idx+1}</td>
+                                  <td className="p-2 border">{idx + 1}</td>
                                   <td className="p-2 border">{s.uniqueCode || ''}</td>
                                   <td className="p-2 border">{s.name || ''}</td>
                                   <td className="p-2 border">{s.price}</td>
                                   <td className="p-2 border">{s.quantity}</td>
+                                  <td className="p-2 border">{s.cgst || s.gst || 0}</td>
+                                  <td className="p-2 border">{s.sgst || 0}</td>
                                   <td className="p-2 border">{s.total}</td>
                                 </tr>
                               ))}

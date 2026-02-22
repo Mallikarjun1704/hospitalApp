@@ -18,6 +18,7 @@ const CashBillTable = () => {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(false);
   const [contactFilter, setContactFilter] = useState('');
+  const isAdmin = localStorage.getItem('userType') === 'admin';
 
   const fetchBills = async (contact) => {
     setLoading(true);
@@ -83,6 +84,8 @@ const CashBillTable = () => {
                 <th className="p-2 border">Contact</th>
                 <th className="p-2 border">IPD</th>
                 <th className="p-2 border">Total</th>
+                <th className="p-2 border">CGST</th>
+                <th className="p-2 border">SGST</th>
                 <th className="p-2 border">Advance</th>
                 <th className="p-2 border">Net Payable</th>
                 <th className="p-2 border">Date</th>
@@ -91,10 +94,10 @@ const CashBillTable = () => {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={9} className="p-4">Loading...</td></tr>
+                <tr><td colSpan={11} className="p-4">Loading...</td></tr>
               )}
               {!loading && bills.length === 0 && (
-                <tr><td colSpan={9} className="p-4">No bills found</td></tr>
+                <tr><td colSpan={11} className="p-4">No bills found</td></tr>
               )}
               {bills.map((b, i) => (
                 <tr key={b._id} className="border-t">
@@ -103,11 +106,13 @@ const CashBillTable = () => {
                   <td className="p-2 border">{b.contact}</td>
                   <td className="p-2 border">{(b.patientId && b.patientId.ipdNumber) || b.ipdNumber || '-'}</td>
                   <td className="p-2 border">{b.total || 0}</td>
+                  <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0)}</td>
+                  <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0)}</td>
                   <td className="p-2 border">{b.advancePayment || 0}</td>
                   <td className="p-2 border">{b.netPayable || 0}</td>
                   <td className="p-2 border">{b.admissionDate ? formatDate(new Date(b.admissionDate)) : (b.date ? formatDate(new Date(b.date)) : '-')}</td>
                   <td className="p-2 border space-x-2">
-                    <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>
+                    {isAdmin && <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>}
                     <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => deleteBill(b._id)}>Delete</button>
                   </td>
                 </tr>

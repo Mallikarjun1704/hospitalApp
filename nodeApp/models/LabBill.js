@@ -14,6 +14,8 @@ const LabBillSchema = new mongoose.Schema({
       testName: String,
       price: Number,
       quantity: Number,
+      cgst: Number,
+      sgst: Number,
       total: Number,
     }
   ],

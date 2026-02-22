@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import 'tailwindcss/tailwind.css';
 import Header from '../common/header';
 import { getAuthHeaders } from '../utils/api';
@@ -14,7 +15,7 @@ const Cashbill = () => {
   };
 
   const fixedServices = [
-    'Consultation', 'Doctor Visit', 'Day care nursing','procedure done', 'Bed Charge',
+    'Consultation', 'Doctor Visit', 'Day care nursing', 'procedure done', 'Bed Charge',
   ];
 
   const initialServices = fixedServices.map((service, index) => ({
@@ -22,9 +23,9 @@ const Cashbill = () => {
   }));
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-GB"); 
+    return new Date(date).toLocaleDateString("en-GB");
   };
-  
+
   const [data, setData] = useState({
     name: '',
     contact: '',
@@ -35,11 +36,14 @@ const Cashbill = () => {
     dischargeDate: formatDate(new Date()),
     services: initialServices,
     total: '',
+    totalCgst: 0,
+    totalSgst: 0,
     advancePayment: 0,
     netPayable: '',
   });
 
   const [editingId, setEditingId] = useState(null);
+  const isAdmin = localStorage.getItem('userType') === 'admin';
 
   const [patientIdCounter, setPatientIdCounter] = useState(1);
 
@@ -99,7 +103,7 @@ const Cashbill = () => {
         age: 20 + (i % 30),
         contactNumber: `90000${10000 + i}`,
         ipdNumber: `IPD-${1000 + i}`,
-        admissionDate: `${2025}-${String(10).padStart(2, '0')}-${String(((i % 28) + 1)).padStart(2,'0')}`,
+        admissionDate: `${2025}-${String(10).padStart(2, '0')}-${String(((i % 28) + 1)).padStart(2, '0')}`,
         consultantName: `Dr. Consultant ${(i % 5) + 1}`,
       }));
     }
@@ -149,10 +153,12 @@ const Cashbill = () => {
     const updatedServices = [...data.services];
     updatedServices[index][field] = value;
 
-    if (field === 'price' || field === 'quantity') {
+    if (field === 'price' || field === 'quantity' || field === 'cgst' || field === 'sgst') {
       const price = parseFloat(updatedServices[index].price) || 0;
       const quantity = parseInt(updatedServices[index].quantity) || 0;
-      updatedServices[index].total = price * quantity || 0;
+      const cgst = parseFloat(updatedServices[index].cgst) || 0;
+      const sgst = parseFloat(updatedServices[index].sgst) || 0;
+      updatedServices[index].total = (price * quantity) + cgst + sgst || 0;
     }
 
     const updatedTotal = updatedServices.reduce(
@@ -160,8 +166,18 @@ const Cashbill = () => {
       0
     );
 
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.cgst) || 0), 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.sgst) || 0), 0);
+
     const advance = Number(data.advancePayment) || 0;
-    setData({ ...data, services: updatedServices, total: updatedTotal, netPayable: updatedTotal - advance });
+    setData({
+      ...data,
+      services: updatedServices,
+      total: updatedTotal,
+      totalCgst: updatedTotalCgst,
+      totalSgst: updatedTotalSgst,
+      netPayable: updatedTotal - advance
+    });
   };
 
   const addRow = () => {
@@ -199,8 +215,17 @@ const Cashbill = () => {
         ipdNumber: data.ipdNumber,
         admissionDate: toISODate(data.admissionDate),
         dischargeDate: toISODate(data.dischargeDate),
-        services: data.services.map(s => ({ service: s.service, price: Number(s.price) || 0, quantity: Number(s.quantity) || 0, total: Number(s.total) || 0 })),
+        services: data.services.map(s => ({
+          service: s.service,
+          price: Number(s.price) || 0,
+          quantity: Number(s.quantity) || 0,
+          cgst: Number(s.cgst) || 0,
+          sgst: Number(s.sgst) || 0,
+          total: Number(s.total) || 0
+        })),
         total: Number(data.total) || 0,
+        totalCgst: Number(data.totalCgst) || 0,
+        totalSgst: Number(data.totalSgst) || 0,
         netPayable: Number(data.netPayable) || Number(data.total) || 0,
         advancePayment: Number(data.advancePayment) || 0,
       };
@@ -245,8 +270,18 @@ const Cashbill = () => {
         place: bill.place || 'Koppal',
         patientId: bill.patientId && bill.patientId._id ? (bill.patientId.ipdNumber || '') : (bill.ipdNumber || ''),
         dischargeDate: bill.dischargeDate ? formatDate(new Date(bill.dischargeDate)) : formatDate(new Date()),
-        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({ no: i + 1, service: s.service || '', price: s.price || '', quantity: s.quantity || '', total: s.total || '' })) : initialServices,
+        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
+          no: i + 1,
+          service: s.service || '',
+          price: s.price || '',
+          quantity: s.quantity || '',
+          cgst: s.cgst || s.gst || 0,
+          sgst: s.sgst || 0,
+          total: s.total || ''
+        })) : initialServices,
         total: bill.total || 0,
+        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
+        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
         advancePayment: bill.advancePayment || 0,
         netPayable: bill.netPayable || (bill.total - (bill.advancePayment || 0)) || 0,
         ipdNumber: bill.ipdNumber || '',
@@ -261,64 +296,101 @@ const Cashbill = () => {
 
 
 
-    const generatePDF = () => {
-        const doc = new jsPDF({
-          orientation: 'portrait',
-          unit: 'px',
-          format: 'a2',
-        });
-    
-        const billContent = document.querySelector('#bill');
-        const noPrintElements = document.querySelectorAll('.no-print');
-    
-        noPrintElements.forEach((el) => {
-          el.style.display = 'none';
-        });
-    
-        const inputs = billContent.querySelectorAll('input');
-        inputs.forEach((input) => {
-        const span = document.createElement('span');
-        span.textContent = input.value;
-        input.parentNode.replaceChild(span, input);
+  const generatePDF = async () => {
+    const billContent = document.querySelector('#bill');
+    const noPrintElements = document.querySelectorAll('.no-print');
+    const allInputs = billContent.querySelectorAll('textarea, input, select');
+
+    // Create a temporary label for the copy type
+    const copyLabel = document.createElement('div');
+    copyLabel.style.textAlign = 'right';
+    copyLabel.style.fontWeight = 'bold';
+    copyLabel.style.padding = '5px 20px';
+    copyLabel.style.fontSize = '16px';
+    copyLabel.style.color = '#333';
+    billContent.prepend(copyLabel);
+
+    // Store original styles
+    const originalStyles = [];
+    allInputs.forEach(el => {
+      originalStyles.push({
+        el,
+        height: el.style.height,
+        overflow: el.style.overflow
       });
-    
-        const selects = billContent.querySelectorAll('select');
-        selects.forEach((select) => {
-        const span = document.createElement('span');
-        span.textContent = select.options[select.selectedIndex].text;
-        select.parentNode.replaceChild(span, select);
+    });
+
+    // Hide no-print elements
+    noPrintElements.forEach((el) => {
+      el.dataset.origDisplay = el.style.display;
+      el.style.display = 'none';
+    });
+
+    try {
+      // Expand inputs
+      allInputs.forEach(el => {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight + 2) + 'px';
+        el.style.overflow = 'visible';
       });
-    
-        doc.html(billContent, {
-          callback: (doc) => {
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-    
-            doc.html(billContent, {
-              x: 10,
-              y: pageHeight / 2,
-              callback: () => {
-                noPrintElements.forEach((el) => {
-                  el.style.display = '';
-                });
-                doc.save('Hosp-Mallikarjun-87.pdf');
-              },
-              width:  pageWidth - 20,
-              windowWidth:  pageWidth,
-            });
-          },
-          x: 10,
-          y: 10,
-          width: doc.internal.pageSize.width - 20,
-          windowWidth: doc.internal.pageSize.width,
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const captureCopy = async (label) => {
+        copyLabel.textContent = label;
+        const canvas = await html2canvas(billContent, {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          windowWidth: billContent.scrollWidth,
         });
-    
-        const newPatientId = patientIdCounter + 1;
-        setPatientIdCounter(newPatientId);
-        localStorage.setItem('patientIdCounter', newPatientId.toString());
-    
-        setData({ ...data, patientId: newPatientId });
+        return canvas.toDataURL('image/png', 1.0);
       };
+
+      // Patient Copy
+      const imgData1 = await captureCopy('PATIENT COPY');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(imgData1);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      // Hospital Copy
+      pdf.addPage();
+      const imgData2 = await captureCopy('HOSPITAL COPY');
+      pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      pdf.save(`cash-bill-${Date.now()}.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('Failed to generate PDF');
+    } finally {
+      // Remove temporary label
+      if (copyLabel.parentNode) {
+        copyLabel.parentNode.removeChild(copyLabel);
+      }
+
+      // Restore styles
+      originalStyles.forEach(item => {
+        item.el.style.height = item.height;
+        item.el.style.overflow = item.overflow;
+      });
+
+      // Restore no-print elements
+      noPrintElements.forEach((el) => {
+        el.style.display = el.dataset.origDisplay || '';
+      });
+    }
+
+    const newPatientId = patientIdCounter + 1;
+    setPatientIdCounter(newPatientId);
+    localStorage.setItem('patientIdCounter', newPatientId.toString());
+
+    setData({ ...data, patientId: newPatientId });
+  };
 
   return (
     <div>
@@ -328,7 +400,7 @@ const Cashbill = () => {
           <h2 className="font-bold text-lg text-center">Hospital Cash Bill</h2>
           {/* Saved bills list moved to `cashBillTable.jsx` */}
           <div className="grid grid-cols-3 gap-2 mt-4">
-            {[ 
+            {[
               { label: 'Name', field: 'name', PlaceHolder: 'Enter The Name' },
               { label: 'Contact', field: 'contact', PlaceHolder: 'Enter Contact Number' },
               { label: 'Age', field: 'age', PlaceHolder: 'Enter The Age' },
@@ -356,6 +428,8 @@ const Cashbill = () => {
                 <th className="p-2 border text-white">Service Provided</th>
                 <th className="p-2 border text-white">Price</th>
                 <th className="p-2 border text-white">Quantity Days</th>
+                <th className="p-2 border text-white">CGST</th>
+                <th className="p-2 border text-white">SGST</th>
                 <th className="p-2 border text-white">Total (Rupees)</th>
               </tr>
             </thead>
@@ -392,6 +466,22 @@ const Cashbill = () => {
                     />
                   </td>
                   <td className="p-2 border">
+                    <input
+                      type="number"
+                      value={service.cgst}
+                      onChange={(e) => handleServiceChange(index, 'cgst', e.target.value)}
+                      className="w-full p-1 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="p-2 border">
+                    <input
+                      type="number"
+                      value={service.sgst}
+                      onChange={(e) => handleServiceChange(index, 'sgst', e.target.value)}
+                      className="w-full p-1 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="p-2 border">
                     <input type="text" value={service.total} readOnly className="w-full p-1" />
                   </td>
                   <td className="p-2 border">
@@ -402,6 +492,14 @@ const Cashbill = () => {
             </tbody>
           </table>
           <div className="mt-4">
+            <p>
+              <b>Total CGST:</b>
+              <input type="number" value={data.totalCgst} readOnly className="ml-2 p-1 border-gray-300 rounded" />
+            </p>
+            <p>
+              <b>Total SGST:</b>
+              <input type="number" value={data.totalSgst} readOnly className="ml-2 p-1 border-gray-300 rounded" />
+            </p>
             <p>
               <b>Total:</b>
               <input
@@ -431,14 +529,14 @@ const Cashbill = () => {
             </p>
           </div>
           <div className="flex justify-center space-x-2 mt-4 no-print">
-            <button 
+            <button
               onClick={handleGoBack}
               className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600"
             >
               Back
             </button>
 
-            <button 
+            <button
               onClick={generatePDF}
               className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600"
             >
@@ -446,7 +544,7 @@ const Cashbill = () => {
             </button>
 
             <button className="px-4 py-2 bg-green-500 text-white rounded" onClick={addRow}>Add Row</button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={saveBill}>{editingId ? 'Update Bill' : 'Save Bill'}</button>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={saveBill}>{editingId ? (isAdmin ? 'Update Bill' : 'Save Bill') : 'Save Bill'}</button>
           </div>
         </div>
       </div>

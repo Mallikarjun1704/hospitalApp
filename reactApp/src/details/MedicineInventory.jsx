@@ -8,6 +8,7 @@ export default function MedicineInventory() {
   const [medicines, setMedicines] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const isAdmin = localStorage.getItem('userType') === 'admin';
 
   useEffect(() => {
     // fetch medicines from backend
@@ -102,7 +103,7 @@ export default function MedicineInventory() {
                 <tr key={medicine.uniqueCode}>
                   <td className="px-6 py-4 whitespace-nowrap">{medicine.code}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{medicine.name}</td>
-                  <td 
+                  <td
                     className={`px-6 py-4 whitespace-nowrap ${medicine.stock <= 10 ? 'bg-yellow-100' : ''}`}
                     title={medicine.stock <= 10 ? "Inventory stock is low" : ""}
                   >
@@ -110,15 +111,17 @@ export default function MedicineInventory() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">₹{medicine.purchasePrice}</td>
                   <td className="px-6 py-4 whitespace-nowrap">₹{medicine.salePrice}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{medicine.purchaseDate ? new Date(medicine.purchaseDate).toISOString().slice(0,10) : ''}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{medicine.expiryDate ? new Date(medicine.expiryDate).toISOString().slice(0,10) : ''}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{medicine.purchaseDate ? new Date(medicine.purchaseDate).toISOString().slice(0, 10) : ''}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{medicine.expiryDate ? new Date(medicine.expiryDate).toISOString().slice(0, 10) : ''}</td>
                   <td className="px-6 py-4 whitespace-nowrap space-x-3">
-                    <button
-                      onClick={() => handleEdit(medicine._id)}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      Edit
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleEdit(medicine._id)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Edit
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(medicine._id)}
                       className="text-red-600 hover:text-red-900"

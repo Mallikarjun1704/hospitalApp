@@ -48,6 +48,7 @@ export default function AddPatient() {
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
   const navigate = useNavigate();
   const location = useLocation();
+  const isAdmin = localStorage.getItem('userType') === 'admin';
 
   const getNextNumber = (type) => {
     const key = type === 'IPD' ? "lastIpdNumber" : "lastOpdNumber";
@@ -434,7 +435,9 @@ export default function AddPatient() {
 
         {/* Global Action Buttons */}
         <div className="flex justify-center gap-3 mt-8 pb-8 no-print" data-html2canvas-ignore="true">
-          <button type="submit" onClick={handleSubmit} className="px-8 py-3 bg-green-600 font-bold shadow-md text-white rounded hover:bg-green-700">{editingId ? 'Update Record' : 'Save Record'}</button>
+          <button type="submit" onClick={handleSubmit} className="px-8 py-3 bg-green-600 font-bold shadow-md text-white rounded hover:bg-green-700">
+            {editingId ? (isAdmin ? 'Update Record' : 'Save Record') : 'Save Record'}
+          </button>
           <button type="button" onClick={generatePDF} className="px-8 py-3 bg-blue-600 font-bold shadow-md text-white rounded hover:bg-blue-700">Download PDF</button>
           <button type="button" onClick={handleGoBack} className="px-8 py-3 bg-gray-500 font-bold shadow-md text-white rounded hover:bg-gray-600">Back</button>
         </div>

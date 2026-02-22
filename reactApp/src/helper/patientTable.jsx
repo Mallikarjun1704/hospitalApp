@@ -12,6 +12,7 @@ const DUMMY_DATA = Array.from({ length: 5 }).map((_, i) => ({
 }));
 
 export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onView }) {
+  const isAdmin = localStorage.getItem('userType') === 'admin';
   const formatIsoDate = (val) => {
     if (!val) return '';
     try {
@@ -84,7 +85,7 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
                   <td className="px-4 py-2 text-sm text-gray-700">{r.consultDoctor || r.consultantName}</td>
                   <td className="px-4 py-2 text-sm text-gray-700">
                     <div className="flex gap-2">
-                      {onEdit && (
+                      {onEdit && isAdmin && (
                         <button
                           onClick={() => onEdit(r)}
                           className="bg-yellow-300 px-3 py-1 rounded"

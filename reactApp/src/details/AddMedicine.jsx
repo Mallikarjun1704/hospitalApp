@@ -7,6 +7,7 @@ export default function AddMedicine() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = !!id;
+  const isAdmin = localStorage.getItem('userType') === 'admin';
 
   const [formData, setFormData] = useState({
     uniqueCode: '',
@@ -39,8 +40,8 @@ export default function AddMedicine() {
             stock: data.stock,
             purchasePrice: data.purchasePrice,
             salePrice: data.salePrice,
-            purchaseDate: data.purchaseDate ? data.purchaseDate.slice(0,10) : '',
-            expiryDate: data.expiryDate ? data.expiryDate.slice(0,10) : '',
+            purchaseDate: data.purchaseDate ? data.purchaseDate.slice(0, 10) : '',
+            expiryDate: data.expiryDate ? data.expiryDate.slice(0, 10) : '',
             manufacturer: data.manufacturer || '',
             description: data.description || ''
           });
@@ -112,7 +113,7 @@ export default function AddMedicine() {
         }
         if (!res.ok) {
           let err;
-          try { err = await res.json(); } catch(e) { err = { error: await res.text() } }
+          try { err = await res.json(); } catch (e) { err = { error: await res.text() } }
           return alert(err.error || 'Failed to save');
         }
         navigate('/medicine-inventory');
@@ -259,7 +260,7 @@ export default function AddMedicine() {
               onClick={handleSubmit}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              {isEditing ? 'Update Medicine' : 'Add Medicine'}
+              {isEditing ? (isAdmin ? 'Update Medicine' : 'Add Medicine') : 'Add Medicine'}
             </button>
           </div>
         </form>

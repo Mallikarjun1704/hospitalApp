@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import 'tailwindcss/tailwind.css';
 import Header from '../common/header';
 import { useNavigate, useLocation } from "react-router-dom";
@@ -15,17 +16,21 @@ const Medical = () => {
     ipdNumber: '',
     dischargeDate: new Date().toLocaleDateString(),
     services: [
-      { no: 1, service: 'Consultation', price: 150, quantity: 1, total: 150 },
+      { no: 1, service: 'Consultation', price: 150, quantity: 1, cgst: 0, sgst: 0, total: 150 },
     ],
     total: '',
+    totalCgst: 0,
+    totalSgst: 0,
     advancePayment: 'nil',
     netPayable: '',
   });
 
   const [patientIdCounter, setPatientIdCounter] = useState(1);
   const [medicines, setMedicines] = useState([]);
-  
+
   const location = useLocation();
+  const isAdmin = localStorage.getItem('userType') === 'admin';
+  const isEdit = !!(location && location.state && location.state.editId);
 
   useEffect(() => {
     const storedCounter = localStorage.getItem('patientIdCounter');
@@ -93,10 +98,12 @@ const Medical = () => {
       }
     }
 
-    if (field === 'price' || field === 'quantity') {
+    if (field === 'price' || field === 'quantity' || field === 'cgst' || field === 'sgst') {
       const price = parseFloat(updatedServices[index].price) || 0;
       const quantity = parseInt(updatedServices[index].quantity) || 0;
-      updatedServices[index].total = price * quantity || 0;
+      const cgst = parseFloat(updatedServices[index].cgst) || 0;
+      const sgst = parseFloat(updatedServices[index].sgst) || 0;
+      updatedServices[index].total = (price * quantity) + cgst + sgst || 0;
     }
 
     // if uniqueCode manually entered, try to resolve medicine
@@ -109,7 +116,9 @@ const Medical = () => {
         updatedServices[index].price = med.salePrice || med.purchasePrice || 0;
         const qty = parseInt(updatedServices[index].quantity) || 1;
         updatedServices[index].quantity = qty;
-        updatedServices[index].total = (Number(updatedServices[index].price) || 0) * qty;
+        updatedServices[index].cgst = updatedServices[index].cgst || 0;
+        updatedServices[index].sgst = updatedServices[index].sgst || 0;
+        updatedServices[index].total = (Number(updatedServices[index].price) || 0) * qty + (Number(updatedServices[index].cgst) || 0) + (Number(updatedServices[index].sgst) || 0);
       }
     }
 
@@ -117,8 +126,17 @@ const Medical = () => {
       (sum, item) => (item.total !== '-' ? sum + parseFloat(item.total) : sum),
       0
     );
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.cgst) || 0), 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.sgst) || 0), 0);
 
-    setData({ ...data, services: updatedServices, total: updatedTotal, netPayable: updatedTotal });
+    setData({
+      ...data,
+      services: updatedServices,
+      total: updatedTotal,
+      totalCgst: updatedTotalCgst,
+      totalSgst: updatedTotalSgst,
+      netPayable: updatedTotal
+    });
   };
 
   const addNewRow = () => {
@@ -127,6 +145,8 @@ const Medical = () => {
       service: '',
       price: '',
       quantity: '',
+      cgst: 0,
+      sgst: 0,
       total: '',
       uniqueCode: '',
       name: ''
@@ -134,9 +154,9 @@ const Medical = () => {
 
     setData({ ...data, services: [...data.services, newRow] });
   };
-  
+
   const removeLastRow = () => {
-    if (data.services.length >0) {
+    if (data.services.length > 0) {
       const updatedServices = data.services.slice(0, -1);
 
       const updatedTotal = updatedServices.reduce(
@@ -150,7 +170,7 @@ const Medical = () => {
 
   const loadBill = async (id) => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills/${id}` , { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills/${id}`, { headers: getAuthHeaders() });
       if (!res.ok) return;
       const bill = await res.json();
       const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
@@ -165,8 +185,21 @@ const Medical = () => {
         place: bill.place || 'Koppal',
         ipdNumber: bill.ipdNumber || '',
         dischargeDate: bill.dischargeDate ? new Date(bill.dischargeDate).toLocaleDateString() : new Date().toLocaleDateString(),
-        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({ no: i+1, service: s.medicineId || s.service || '', medicineId: s.medicineId || undefined, price: s.price || '', quantity: s.quantity || '', total: s.total || '', uniqueCode: s.uniqueCode || '', name: s.name || '' })) : data.services,
+        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
+          no: i + 1,
+          service: s.medicineId || s.service || '',
+          medicineId: s.medicineId || undefined,
+          price: s.price || '',
+          quantity: s.quantity || '',
+          cgst: s.cgst || s.gst || 0,
+          sgst: s.sgst || 0,
+          total: s.total || '',
+          uniqueCode: s.uniqueCode || '',
+          name: s.name || ''
+        })) : data.services,
         total: bill.total || 0,
+        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
+        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
         advancePayment: bill.advancePayment || 0,
         netPayable: bill.netPayable || 0,
       });
@@ -182,7 +215,17 @@ const Medical = () => {
         ipdNumber: data.ipdNumber,
         admissionDate: data.admissionDate,
         dischargeDate: data.dischargeDate,
-        services: data.services.map(s => ({ medicineId: s.medicineId, service: s.service, uniqueCode: s.uniqueCode || '', name: s.name || '', price: Number(s.price) || 0, quantity: Number(s.quantity) || 0, total: Number(s.total) || 0 })),
+        services: data.services.map(s => ({
+          medicineId: s.medicineId,
+          service: s.service,
+          uniqueCode: s.uniqueCode || '',
+          name: s.name || '',
+          price: Number(s.price) || 0,
+          quantity: Number(s.quantity) || 0,
+          cgst: Number(s.cgst) || 0,
+          sgst: Number(s.sgst) || 0,
+          total: Number(s.total) || 0
+        })),
         total: Number(data.total) || 0,
         netPayable: Number(data.netPayable) || Number(data.total) || 0,
         advancePayment: Number(data.advancePayment) || 0,
@@ -205,7 +248,7 @@ const Medical = () => {
     } catch (err) { alert('Error saving: ' + err.message); }
   };
 
-  const isEdit = !!(location && location.state && location.state.editId);
+
 
   // addByCode removed: selection now via per-row code input with datalist
 
@@ -219,79 +262,127 @@ const Medical = () => {
       updatedServices[index].name = med.name || '';
       updatedServices[index].price = med.salePrice || med.purchasePrice || 0;
       updatedServices[index].quantity = updatedServices[index].quantity || 1;
-      updatedServices[index].total = (Number(updatedServices[index].price) || 0) * (Number(updatedServices[index].quantity) || 1);
+      updatedServices[index].cgst = updatedServices[index].cgst || 0;
+      updatedServices[index].sgst = updatedServices[index].sgst || 0;
+      updatedServices[index].total = (Number(updatedServices[index].price) || 0) * (Number(updatedServices[index].quantity) || 1) + (Number(updatedServices[index].cgst) || 0) + (Number(updatedServices[index].sgst) || 0);
       updatedServices[index].service = med._id;
     }
 
     const updatedTotal = updatedServices.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-    setData({ ...data, services: updatedServices, total: updatedTotal, netPayable: updatedTotal });
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (Number(item.sgst) || 0), 0);
+    setData({
+      ...data,
+      services: updatedServices,
+      total: updatedTotal,
+      totalCgst: updatedTotalCgst,
+      totalSgst: updatedTotalSgst,
+      netPayable: updatedTotal
+    });
   };
-  
 
-    const generatePDF = () => {
-        const doc = new jsPDF({
-          orientation: 'portrait',
-          unit: 'px',
-          format: 'a2',
-        });
-    
-        const billContent = document.querySelector('#bill');
-        const noPrintElements = document.querySelectorAll('.no-print');
-    
-        noPrintElements.forEach((el) => {
-          el.style.display = 'none';
-        });
-    
-        const inputs = billContent.querySelectorAll('input');
-        inputs.forEach((input) => {
-        const span = document.createElement('span');
-        span.textContent = input.value;
-        input.parentNode.replaceChild(span, input);
+
+  const generatePDF = async () => {
+    const billContent = document.querySelector('#bill');
+    const noPrintElements = document.querySelectorAll('.no-print');
+    const allInputs = billContent.querySelectorAll('textarea, input, select');
+
+    // Create a temporary label for the copy type
+    const copyLabel = document.createElement('div');
+    copyLabel.style.textAlign = 'right';
+    copyLabel.style.fontWeight = 'bold';
+    copyLabel.style.padding = '5px 20px';
+    copyLabel.style.fontSize = '16px';
+    copyLabel.style.color = '#333';
+    billContent.prepend(copyLabel);
+
+    // Store original styles
+    const originalStyles = [];
+    allInputs.forEach(el => {
+      originalStyles.push({
+        el,
+        height: el.style.height,
+        overflow: el.style.overflow
       });
-    
-        const selects = billContent.querySelectorAll('select');
-        selects.forEach((select) => {
-        const span = document.createElement('span');
-        span.textContent = select.options[select.selectedIndex].text;
-        select.parentNode.replaceChild(span, select);
+    });
+
+    // Hide no-print elements
+    noPrintElements.forEach((el) => {
+      el.dataset.origDisplay = el.style.display;
+      el.style.display = 'none';
+    });
+
+    try {
+      // Expand inputs
+      allInputs.forEach(el => {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight + 2) + 'px';
+        el.style.overflow = 'visible';
       });
-    
-        doc.html(billContent, {
-          callback: (doc) => {
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-    
-            doc.html(billContent, {
-              x: 10,
-              y: pageHeight / 2,
-              callback: () => {
-                noPrintElements.forEach((el) => {
-                  el.style.display = '';
-                });
-                doc.save('Medi-Mallikarjun-92.pdf');
-              },
-              width:  pageWidth - 20,
-              windowWidth:  pageWidth,
-            });
-          },
-          x: 10,
-          y: 10,
-          width: doc.internal.pageSize.width - 20,
-          windowWidth: doc.internal.pageSize.width,
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const captureCopy = async (label) => {
+        copyLabel.textContent = label;
+        const canvas = await html2canvas(billContent, {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          windowWidth: billContent.scrollWidth,
         });
-    
-        const newPatientId = patientIdCounter + 1;
-        setPatientIdCounter(newPatientId);
-        localStorage.setItem('patientIdCounter', newPatientId.toString());
-    
-        setData({ ...data, ipdNumber: newPatientId });
+        return canvas.toDataURL('image/png', 1.0);
       };
 
-      const navigate = useNavigate();
-      const handleGoBack = (event) => {
-        // Prevent navigation
-        navigate(-1); // Go to previous page
-      };
+      // Patient Copy
+      const imgData1 = await captureCopy('PATIENT COPY');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(imgData1);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      // Hospital Copy
+      pdf.addPage();
+      const imgData2 = await captureCopy('HOSPITAL COPY');
+      pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      pdf.save(`medical-bill-${Date.now()}.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('Failed to generate PDF');
+    } finally {
+      // Remove temporary label
+      if (copyLabel.parentNode) {
+        copyLabel.parentNode.removeChild(copyLabel);
+      }
+
+      // Restore styles
+      originalStyles.forEach(item => {
+        item.el.style.height = item.height;
+        item.el.style.overflow = item.overflow;
+      });
+
+      // Restore no-print elements
+      noPrintElements.forEach((el) => {
+        el.style.display = el.dataset.origDisplay || '';
+      });
+    }
+
+    const newPatientId = patientIdCounter + 1;
+    setPatientIdCounter(newPatientId);
+    localStorage.setItem('patientIdCounter', newPatientId.toString());
+
+    setData({ ...data, ipdNumber: newPatientId });
+  };
+
+  const navigate = useNavigate();
+  const handleGoBack = (event) => {
+    // Prevent navigation
+    navigate(-1); // Go to previous page
+  };
 
   return (
     <div>
@@ -300,7 +391,7 @@ const Medical = () => {
         <div className="flex flex-col space-y-5 px-2">
           <h2 className="font-bold text-lg text-center">Pharmacy Cash Bill</h2>
           <div className="grid grid-cols-3 gap-2 mt-4">
-            {[ 
+            {[
               { label: 'Name', field: 'name', PlaceHolder: 'Enter The Name' },
               { label: 'Contact', field: 'contact', PlaceHolder: 'Enter Contact Number' },
               { label: 'Age', field: 'age', PlaceHolder: 'Enter The Age' },
@@ -338,9 +429,11 @@ const Medical = () => {
                 <th className="p-2 border text-white">No</th>
                 <th className="p-2 border text-white">Unique Code</th>
                 <th className="p-2 border text-white">Name</th>
-                
+
                 <th className="p-2 border text-white">Price</th>
                 <th className="p-2 border text-white">Quantity Days</th>
+                <th className="p-2 border text-white">CGST</th>
+                <th className="p-2 border text-white">SGST</th>
                 <th className="p-2 border text-white">Total (Rupees)</th>
               </tr>
             </thead>
@@ -375,6 +468,22 @@ const Medical = () => {
                     />
                   </td>
                   <td className="p-2 border">
+                    <input
+                      type="number"
+                      value={service.cgst}
+                      onChange={(e) => handleServiceChange(index, 'cgst', e.target.value)}
+                      className="w-full p-1 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="p-2 border">
+                    <input
+                      type="number"
+                      value={service.sgst}
+                      onChange={(e) => handleServiceChange(index, 'sgst', e.target.value)}
+                      className="w-full p-1 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="p-2 border">
                     <input type="text" value={service.total} readOnly className="w-full p-1" />
                   </td>
                 </tr>
@@ -382,6 +491,14 @@ const Medical = () => {
             </tbody>
           </table>
           <div className="mt-4">
+            <p>
+              <b>Total CGST:</b>
+              <input type="number" value={data.totalCgst} readOnly className="ml-2 p-1 border-gray-300 rounded" />
+            </p>
+            <p>
+              <b>Total SGST:</b>
+              <input type="number" value={data.totalSgst} readOnly className="ml-2 p-1 border-gray-300 rounded" />
+            </p>
             <p>
               <b>Total:</b>
               <input
@@ -413,36 +530,36 @@ const Medical = () => {
         </div>
       </div>
       <div className="flex justify-center">
-         <button
+        <button
           onClick={addNewRow}
           className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 no-print"
-          >
-            Add New Row
-         </button>
-         <button 
-         onClick={removeLastRow}
-         className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 no-print ml-4"
-         >
-           Remove Last Row
-         </button>
-         <button 
-         onClick={generatePDF}
-         className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
-         >
-           Download PDF
-         </button>
-         <button 
-         onClick={handleGoBack}
-         className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
-         >
-           Back
-         </button>
-            <button 
-            onClick={saveBill}
-            className="px-6 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 no-print ml-4"
-            >
-              {isEdit ? 'Update Bill' : 'Save Bill'}
-            </button>
+        >
+          Add New Row
+        </button>
+        <button
+          onClick={removeLastRow}
+          className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 no-print ml-4"
+        >
+          Remove Last Row
+        </button>
+        <button
+          onClick={generatePDF}
+          className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
+        >
+          Download PDF
+        </button>
+        <button
+          onClick={handleGoBack}
+          className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
+        >
+          Back
+        </button>
+        <button
+          onClick={saveBill}
+          className="px-6 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 no-print ml-4"
+        >
+          {isEdit ? (isAdmin ? 'Update Bill' : 'Save Bill') : 'Save Bill'}
+        </button>
       </div>
     </div>
   );
