@@ -384,7 +384,7 @@ const Medical = () => {
   return (
     <div>
       <div id="bill" className="w-full items-center">
-        <Header />
+        <Header isSticky={false} />
         <div className="flex flex-col space-y-5 px-2">
           <h2 className="font-bold text-lg text-center">Pharmacy Cash Bill</h2>
           <div className="grid grid-cols-3 gap-2 mt-4">

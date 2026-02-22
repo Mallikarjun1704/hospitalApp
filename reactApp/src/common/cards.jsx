@@ -18,7 +18,7 @@ const Card = () => {
       title: "IPD Detail",
       sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 0,
-      gradient: "from-blue-600 to-indigo-700",
+      gradient: "from-[#049746] to-teal-800",
       link: "/details/ipd-patients",
     },
     {
@@ -26,7 +26,7 @@ const Card = () => {
       title: "OPD Detail",
       sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 0,
-      gradient: "from-emerald-500 to-teal-700",
+      gradient: "from-[#00CED1] to-cyan-700",
       link: "/details/opd-patients",
     },
     {
@@ -272,7 +272,7 @@ const Card = () => {
   };
 
   return (
-    <div className="flex flex-col p-4 sm:p-6 lg:p-8 gap-8 bg-gray-50 min-h-screen">
+    <div className="flex flex-col p-4 sm:p-6 lg:p-8 gap-8 bg-gradient-to-br from-[#f8fafb] to-[#f0fdff] min-h-screen">
       {/* Row of Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 xl:gap-5 justify-items-center max-w-7xl mx-auto w-full">
         {cards.map((card) => (

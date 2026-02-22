@@ -165,7 +165,7 @@ const PatientForm = () => {
       <div id="bill" className="max-w-4xl mx-auto space-y-8">
         {/* Page 1 */}
         <div id="pdf-page-1" className="bg-white p-8 rounded-lg shadow-md">
-          <Header />
+          <Header isSticky={false} />
           <form className="space-y-6 mt-4">
             <h1 className="text-xl font-bold text-gray-800 text-center mb-4 uppercase">
               Discharge Summary
@@ -322,6 +322,7 @@ const PatientForm = () => {
 
         {/* Page 2 */}
         <div id="pdf-page-2" className="bg-white p-8 rounded-lg shadow-md">
+
           <form className="space-y-6 mt-4">
             <div>
               <label className="block text-gray-600 mb-2 font-semibold">Provisional Diagnosis:</label>
