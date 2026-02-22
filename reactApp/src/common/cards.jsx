@@ -15,20 +15,31 @@ const Card = () => {
   const cards = [
     {
       id: 1,
-      title: "Patient Detail",
+      title: "IPD Detail",
       // larger card
-      sizeClass: "w-56 sm:w-56 md:w-60 lg:w-64",
-      // count will be replaced dynamically with yearTotalPatients when available
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      // count will be replaced dynamically with ipdYearlyTotal when available
       count: 0,
       bgColor: "#4795e8",
       borderColor: "#2e83dd",
-      link: "/details/patient-details",
+      link: "/details/ipd-patients",
+    },
+    {
+      id: 7,
+      title: "OPD Detail",
+      // larger card
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      // count will be replaced dynamically with opdYearlyTotal when available
+      count: 0,
+      bgColor: "#00b894",
+      borderColor: "#00a884",
+      link: "/details/opd-patients",
     },
     {
       id: 6,
       title: "Medicine Inventory",
       // medium card
-      sizeClass: "w-56 sm:w-56 md:w-60 lg:w-64",
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
       count: 0,
       bgColor: "#ff9f43",
       borderColor: "#ff9f43",
@@ -38,7 +49,7 @@ const Card = () => {
       id: 2,
       title: "Hospital Cash Bill",
       // small card
-      sizeClass: "w-56 sm:w-56 md:w-60 lg:w-64",
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
       count: 57,
       bgColor: "#673b77ff",
       borderColor: "#2eddb1ff",
@@ -48,7 +59,7 @@ const Card = () => {
     {
       id: 3,
       title: "Pharmacy Bill",
-      sizeClass: "w-56 sm:w-56 md:w-60 lg:w-64",
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
       count: 9,
       bgColor: "#edc651",
       borderColor: "#ffc107",
@@ -57,7 +68,7 @@ const Card = () => {
     {
       id: 4,
       title: "LAB Bill",
-      sizeClass: "w-56 sm:w-56 md:w-60 lg:w-64",
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
       count: 2,
       bgColor: "#4abe65",
       borderColor: "#28a745",
@@ -66,7 +77,7 @@ const Card = () => {
     {
       id: 5,
       title: "Discharge Form",
-      sizeClass: "w-56 sm:w-56 md:w-60 lg:w-64",
+      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
       count: 3,
       bgColor: "#7fd8f8",
       borderColor: "#7fd8f8",
@@ -74,9 +85,12 @@ const Card = () => {
     },
   ];
 
-  const [revenue, setRevenue] = useState({ daily: 0, monthly: 0, yearly: 0 });
-  const [counts, setCounts] = useState({ daily: 0, monthly: 0, yearly: 0 });
-  const [yearTotalPatients, setYearTotalPatients] = useState(0);
+  const [ipdRevenue, setIpdRevenue] = useState({ daily: 0, monthly: 0, yearly: 0 });
+  const [ipdCounts, setIpdCounts] = useState({ daily: 0, monthly: 0, yearly: 0 });
+  const [opdRevenue, setOpdRevenue] = useState({ daily: 0, monthly: 0, yearly: 0 });
+  const [opdCounts, setOpdCounts] = useState({ daily: 0, monthly: 0, yearly: 0 });
+  const [ipdYearlyTotal, setIpdYearlyTotal] = useState(0);
+  const [opdYearlyTotal, setOpdYearlyTotal] = useState(0);
   const [dailyDetails, setDailyDetails] = useState({ totalAmount: 0, count: 0, patients: [], dailyStart: null });
   const [pharmacyRevenue, setPharmacyRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
   const [pharmacyDailyDetails, setPharmacyDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
@@ -124,10 +138,17 @@ const Card = () => {
         const res = await fetch(`${API_URL}/api/v1/patients/stats`, { headers: getAuthHeaders() });
         if (!res.ok) throw new Error("Failed to fetch stats");
         const data = await res.json();
-        if (data.revenue) setRevenue({ daily: data.revenue.daily || 0, monthly: data.revenue.monthly || 0, yearly: data.revenue.yearly || 0 });
-        if (data.counts) setCounts({ daily: data.counts.daily || 0, monthly: data.counts.monthly || 0, yearly: data.counts.yearly || 0 });
-        if (data.dailyDetails) setDailyDetails({ totalAmount: data.dailyDetails.totalAmount || 0, count: data.dailyDetails.count || 0, patients: data.dailyDetails.patients || [], dailyStart: data.dailyDetails.dailyStart || null });
-        if (typeof data.yearlyTotalPatients === "number") setYearTotalPatients(data.yearlyTotalPatients);
+        if (data.revenue) {
+          setIpdRevenue(data.revenue.ipd || { daily: 0, monthly: 0, yearly: 0 });
+          setOpdRevenue(data.revenue.opd || { daily: 0, monthly: 0, yearly: 0 });
+        }
+        if (data.counts) {
+          setIpdCounts(data.counts.ipd || { daily: 0, monthly: 0, yearly: 0 });
+          setOpdCounts(data.counts.opd || { daily: 0, monthly: 0, yearly: 0 });
+        }
+        if (data.dailyDetails) setDailyDetails(data.dailyDetails);
+        setIpdYearlyTotal(data.ipdYearlyTotal || 0);
+        setOpdYearlyTotal(data.opdYearlyTotal || 0);
       } catch (err) {
         console.error("Could not fetch stats", err);
       }
@@ -174,7 +195,7 @@ const Card = () => {
     };
 
     if (selectedCard) {
-      if (selectedCard.title === "Patient Detail") fetchStats();
+      if (selectedCard.title === "IPD Detail" || selectedCard.title === "OPD Detail") fetchStats();
       if (selectedCard.title === "Hospital Cash Bill") fetchCashRevenue();
       if (selectedCard.title === "Pharmacy Bill") fetchPharmaSales();
       if (selectedCard.title === "Medicine Inventory") fetchSales();
@@ -206,7 +227,9 @@ const Card = () => {
 
   const getIcon = (title) => {
     switch (title) {
-      case "Patient Detail":
+      case "IPD Detail":
+        return <GroupsIcon fontSize="large" sx={{ color: "white" }} />;
+      case "OPD Detail":
         return <GroupsIcon fontSize="large" sx={{ color: "white" }} />;
       case "Hospital Cash Bill":
         return <ReceiptLongIcon fontSize="large" sx={{ color: "white" }} />;
@@ -226,7 +249,7 @@ const Card = () => {
   return (
     <div className="flex flex-col p-8 gap-6">
       {/* Row of Cards */}
-      <div className="flex flex-row gap-6">
+      <div className="flex flex-wrap gap-4 justify-center">
         {cards.map((card) => (
           <div
             key={card.id}
@@ -242,7 +265,9 @@ const Card = () => {
               <div className="flex items-center w-full justify-between">
                 <div className="flex items-center space-x-3">
                   {getIcon(card.title)}
-                  <h1 className="text-xl font-bold text-white">{card.title === "Patient Detail" ? yearTotalPatients : card.count}</h1>
+                  <h1 className="text-xl font-bold text-white">
+                    {card.title === "IPD Detail" ? ipdYearlyTotal : card.title === "OPD Detail" ? opdYearlyTotal : card.count}
+                  </h1>
                 </div>
               </div>
               <h3 className="text-sm mt-3 z-10 text-gray-800 text-center w-full">{card.title}</h3>
@@ -257,24 +282,29 @@ const Card = () => {
         {selectedCard && selectedCard.title !== "Discharge Form" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl px-4">
             {['Daily', 'Monthly', 'Yearly'].map((label) => {
-              const isPatient = selectedCard.title === 'Patient Detail';
+              const isIpd = selectedCard.title === 'IPD Detail';
+              const isOpd = selectedCard.title === 'OPD Detail';
               // choose correct revenue source depending on selected card
-              const revenueSource = isPatient
-                ? revenue
-                : selectedCard.title === 'Hospital Cash Bill'
-                  ? cashRevenue
-                  : selectedCard.title === 'LAB Bill'
-                    ? labRevenue
-                    : selectedCard.title === 'Pharmacy Bill'
-                      ? medicalRevenue
-                      : pharmacyRevenue;
+              const revenueSource = isIpd
+                ? ipdRevenue
+                : isOpd
+                  ? opdRevenue
+                  : selectedCard.title === 'Hospital Cash Bill'
+                    ? cashRevenue
+                    : selectedCard.title === 'LAB Bill'
+                      ? labRevenue
+                      : selectedCard.title === 'Pharmacy Bill'
+                        ? medicalRevenue
+                        : pharmacyRevenue;
 
               const amount = label === 'Daily' ? revenueSource.daily : label === 'Monthly' ? revenueSource.monthly : revenueSource.yearly;
 
               // choose correct count / daily details depending on selected card
               let count = 0;
-              if (isPatient) {
-                count = label === 'Daily' ? (dailyDetails.count || counts.daily) : label === 'Monthly' ? counts.monthly : counts.yearly;
+              if (isIpd) {
+                count = label === 'Daily' ? ipdCounts.daily : label === 'Monthly' ? ipdCounts.monthly : ipdCounts.yearly;
+              } else if (isOpd) {
+                count = label === 'Daily' ? opdCounts.daily : label === 'Monthly' ? opdCounts.monthly : opdCounts.yearly;
               } else if (selectedCard.title === 'Pharmacy Bill') {
                 count = label === 'Daily' ? (medicalDailyDetails.count || 0) : (label === 'Monthly' ? medicalRevenue.monthlyCount : medicalRevenue.yearlyCount);
               } else if (selectedCard.title === 'Medicine Inventory') {
@@ -290,7 +320,7 @@ const Card = () => {
                 subText = `Stock: ${medicineStats.totalStock || 0} (Low: ${medicineStats.lowStockCount || 0})`;
               } else if (selectedCard.title === 'Pharmacy Bill') {
                 subText = label === 'Daily' ? `Bills: ${medicalDailyDetails.count || 0}` : `Bills: -`;
-              } else if (isPatient) {
+              } else if (isIpd || isOpd) {
                 subText = `Patients: ${count}`;
               } else if (selectedCard.title === 'Hospital Cash Bill') {
                 subText = `Bills: ${count}`;
@@ -301,13 +331,13 @@ const Card = () => {
                 <div
                   key={label}
                   className={`bg-white rounded-lg shadow hover:shadow-lg transition-all duration-150 cursor-pointer overflow-hidden border-b-4 btn-tactile ${label === 'Daily' ? 'border-blue-500 active:scale-95' :
-                      label === 'Monthly' ? 'border-emerald-500 active:scale-95' :
-                        'border-purple-500 active:scale-95'
+                    label === 'Monthly' ? 'border-emerald-500 active:scale-95' :
+                      'border-purple-500 active:scale-95'
                     }`}
                   onClick={() => {
                     if (label !== 'Daily') return;
                     // Open daily modal only when there's data for the selected card
-                    if (selectedCard.title === 'Patient Detail' && dailyDetails && dailyDetails.patients && dailyDetails.patients.length) setShowDailyModal(true);
+                    if ((isIpd || isOpd) && dailyDetails && dailyDetails.patients && dailyDetails.patients.length) setShowDailyModal(true);
                     else if (selectedCard.title === 'Pharmacy Bill' && medicalDailyDetails && medicalDailyDetails.items && medicalDailyDetails.items.length) setShowDailyModal(true);
                     else if (selectedCard.title === 'Medicine Inventory' && ((medicineStats && medicineStats.lowStockItems && medicineStats.lowStockItems.length) || (pharmacyDailyDetails && pharmacyDailyDetails.items && pharmacyDailyDetails.items.length))) setShowDailyModal(true);
                     else if (selectedCard.title === 'Hospital Cash Bill' && cashDailyDetails && cashDailyDetails.items && cashDailyDetails.items.length) setShowDailyModal(true);
@@ -333,8 +363,8 @@ const Card = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white w-11/12 md:w-3/4 lg:w-1/2 p-6 rounded shadow-lg">
             <div className="flex justify-between items-center mb-4">
-              {selectedCard && selectedCard.title === 'Patient Detail' ? (
-                <h3 className="text-lg font-semibold">Today's Patients ({dailyDetails.count}) - {formatCurrency(dailyDetails.totalAmount)}</h3>
+              {selectedCard && (selectedCard.title === 'IPD Detail' || selectedCard.title === 'OPD Detail') ? (
+                <h3 className="text-lg font-semibold">Today's {selectedCard.title.split(' ')[0]} Patients ({dailyDetails.patients.filter(p => p.formType === selectedCard.title.split(' ')[0]).length}) - {formatCurrency(dailyDetails.patients.filter(p => p.formType === selectedCard.title.split(' ')[0]).reduce((s, p) => s + p.amount, 0))}</h3>
               ) : selectedCard && selectedCard.title === 'Pharmacy Bill' ? (
                 <h3 className="text-lg font-semibold">Today's Medical Bills ({medicalDailyDetails.count}) - {formatCurrency(medicalDailyDetails.totalAmount)}</h3>
               ) : selectedCard && selectedCard.title === 'Hospital Cash Bill' ? (
@@ -347,13 +377,13 @@ const Card = () => {
               <button className="px-4 py-1 bg-red-500 text-white rounded btn-tactile hover:bg-red-600" onClick={() => setShowDailyModal(false)}>Close</button>
             </div>
             <div className="overflow-auto max-h-80">
-              {selectedCard && selectedCard.title === 'Patient Detail' ? (
+              {selectedCard && (selectedCard.title === 'IPD Detail' || selectedCard.title === 'OPD Detail') ? (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left border-b"><th className="pb-2">Time</th><th className="pb-2">Name</th><th className="pb-2">IPD</th><th className="pb-2">Contact</th><th className="pb-2">Amount</th></tr>
+                    <tr className="text-left border-b"><th className="pb-2">Time</th><th className="pb-2">Name</th><th className="pb-2">{selectedCard.title.split(' ')[0] === 'IPD' ? 'IPD' : 'OPD'} No</th><th className="pb-2">Contact</th><th className="pb-2">Amount</th></tr>
                   </thead>
                   <tbody>
-                    {dailyDetails.patients.map((p) => (
+                    {dailyDetails.patients.filter(p => p.formType === selectedCard.title.split(' ')[0]).map((p) => (
                       <tr key={p._id || `${p.ipdNumber}-${p.date}`} className="border-b">
                         <td className="py-2">{new Date(p.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="py-2">{p.name}</td>

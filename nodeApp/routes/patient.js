@@ -117,57 +117,140 @@ router.get('/stats', async (req, res) => {
     const facets = await Patient.aggregate([
       {
         $facet: {
-          daily: [
-            { $match: { date: { $gte: startOfDay } } },
+          ipdDaily: [
+            {
+              $match: {
+                date: { $gte: startOfDay },
+                $or: [{ formType: 'IPD' }, { ipdNumber: { $regex: /^IPD-/i } }]
+              }
+            },
             { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
           ],
-          monthly: [
-            { $match: { date: { $gte: startOfMonth } } },
+          opdDaily: [
+            {
+              $match: {
+                date: { $gte: startOfDay },
+                $or: [{ formType: 'OPD' }, { ipdNumber: { $regex: /^OPD-/i } }]
+              }
+            },
             { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
           ],
-          yearly: [
-            { $match: { date: { $gte: startOfYear } } },
+          ipdMonthly: [
+            {
+              $match: {
+                date: { $gte: startOfMonth },
+                $or: [{ formType: 'IPD' }, { ipdNumber: { $regex: /^IPD-/i } }]
+              }
+            },
+            { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
+          ],
+          opdMonthly: [
+            {
+              $match: {
+                date: { $gte: startOfMonth },
+                $or: [{ formType: 'OPD' }, { ipdNumber: { $regex: /^OPD-/i } }]
+              }
+            },
+            { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
+          ],
+          ipdYearly: [
+            {
+              $match: {
+                date: { $gte: startOfYear },
+                $or: [{ formType: 'IPD' }, { ipdNumber: { $regex: /^IPD-/i } }]
+              }
+            },
+            { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
+          ],
+          opdYearly: [
+            {
+              $match: {
+                date: { $gte: startOfYear },
+                $or: [{ formType: 'OPD' }, { ipdNumber: { $regex: /^OPD-/i } }]
+              }
+            },
             { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
           ],
           yearlyTotalPatients: [
             { $match: { date: { $gte: startOfYear } } },
             { $group: { _id: null, totalPatients: { $sum: 1 } } }
+          ],
+          ipdYearlyTotal: [
+            {
+              $match: {
+                date: { $gte: startOfYear },
+                $or: [{ formType: 'IPD' }, { ipdNumber: { $regex: /^IPD-/i } }]
+              }
+            },
+            { $group: { _id: null, count: { $sum: 1 } } }
+          ],
+          opdYearlyTotal: [
+            {
+              $match: {
+                date: { $gte: startOfYear },
+                $or: [{ formType: 'OPD' }, { ipdNumber: { $regex: /^OPD-/i } }]
+              }
+            },
+            { $group: { _id: null, count: { $sum: 1 } } }
           ]
         }
       }
     ]);
 
-    const daily = (facets[0].daily[0] && facets[0].daily[0].totalAmount) || 0;
-    const monthly = (facets[0].monthly[0] && facets[0].monthly[0].totalAmount) || 0;
-    const yearly = (facets[0].yearly[0] && facets[0].yearly[0].totalAmount) || 0;
+    const getStat = (arr) => ({
+      amount: (arr[0] && arr[0].totalAmount) || 0,
+      count: (arr[0] && arr[0].count) || 0
+    });
 
-    const dailyCount = (facets[0].daily[0] && facets[0].daily[0].count) || 0;
-    const monthlyCount = (facets[0].monthly[0] && facets[0].monthly[0].count) || 0;
-    const yearlyCount = (facets[0].yearly[0] && facets[0].yearly[0].count) || 0;
+    const ipdDaily = getStat(facets[0].ipdDaily);
+    const opdDaily = getStat(facets[0].opdDaily);
+    const ipdMonthly = getStat(facets[0].ipdMonthly);
+    const opdMonthly = getStat(facets[0].opdMonthly);
+    const ipdYearly = getStat(facets[0].ipdYearly);
+    const opdYearly = getStat(facets[0].opdYearly);
 
     const yearlyTotalPatients = (facets[0].yearlyTotalPatients[0] && facets[0].yearlyTotalPatients[0].totalPatients) || 0;
+    const ipdYearlyTotal = (facets[0].ipdYearlyTotal[0] && facets[0].ipdYearlyTotal[0].count) || 0;
+    const opdYearlyTotal = (facets[0].opdYearlyTotal[0] && facets[0].opdYearlyTotal[0].count) || 0;
 
     let todaysPatients = await Patient.find({ date: { $gte: startOfDay } })
-      .select('name ipdNumber amount date contact consultDoctor')
+      .select('name ipdNumber amount date contact consultDoctor formType')
       .sort({ date: 1, createdAt: 1 })
       .lean();
 
-    // Convert patient dates to ISO strings (Z) for consistent client consumption
     if (Array.isArray(todaysPatients)) {
-      todaysPatients = todaysPatients.map(p => ({
-        ...p,
-        date: p.date ? new Date(p.date).toISOString() : null,
-        amount: typeof p.amount === 'number' ? p.amount : Number(p.amount) || 0
-      }));
+      todaysPatients = todaysPatients.map(p => {
+        let ft = p.formType;
+        if (!ft && p.ipdNumber) {
+          if (/^OPD-/i.test(p.ipdNumber)) ft = 'OPD';
+          else if (/^IPD-/i.test(p.ipdNumber)) ft = 'IPD';
+        }
+        return {
+          ...p,
+          formType: ft || 'IPD',
+          date: p.date ? new Date(p.date).toISOString() : null,
+          amount: typeof p.amount === 'number' ? p.amount : Number(p.amount) || 0
+        };
+      });
     }
 
-    const dailyDetails = { totalAmount: daily, count: dailyCount, patients: todaysPatients };
-
     res.json({
-      revenue: { daily, monthly, yearly },
-      counts: { daily: dailyCount, monthly: monthlyCount, yearly: yearlyCount },
-      dailyDetails,
-      yearlyTotalPatients
+      revenue: {
+        ipd: { daily: ipdDaily.amount, monthly: ipdMonthly.amount, yearly: ipdYearly.amount },
+        opd: { daily: opdDaily.amount, monthly: opdMonthly.amount, yearly: opdYearly.amount }
+      },
+      counts: {
+        ipd: { daily: ipdDaily.count, monthly: ipdMonthly.count, yearly: ipdYearly.count },
+        opd: { daily: opdDaily.count, monthly: opdMonthly.count, yearly: opdYearly.count }
+      },
+      dailyDetails: {
+        totalAmount: ipdDaily.amount + opdDaily.amount,
+        count: ipdDaily.count + opdDaily.count,
+        patients: todaysPatients
+      },
+      yearlyTotalPatients,
+      ipdYearlyTotal,
+      opdYearlyTotal
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

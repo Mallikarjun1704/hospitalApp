@@ -89,7 +89,7 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
                         {onEdit && isAdmin && (
                           <button
                             onClick={() => onEdit(r)}
-                            className="bg-yellow-300 px-3 py-1 rounded"
+                            className="bg-amber-500 text-white px-3 py-1 rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium"
                           >
                             Edit
                           </button>
@@ -97,13 +97,13 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
                         {isAdmin && onDelete && (
                           <button
                             onClick={() => onDelete(r._id || r.id)}
-                            className="bg-red-400 px-3 py-1 rounded"
+                            className="bg-rose-600 text-white px-3 py-1 rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium"
                           >
                             Delete
                           </button>
                         )}
                         {onView && (
-                          <button onClick={() => onView(r)} className="bg-blue-500 px-3 py-1 rounded text-white">View</button>
+                          <button onClick={() => onView(r)} className="bg-blue-500 text-white px-3 py-1 rounded btn-tactile hover:bg-blue-600 shadow-sm font-medium">View</button>
                         )}
                       </div>
                     </td>

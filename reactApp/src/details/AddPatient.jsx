@@ -115,19 +115,18 @@ export default function AddPatient() {
     };
 
     const incomingPatient = location?.state?.patient;
-    const incomingFormType = location?.state?.formType;
+    const incomingFormType = location?.state?.formType || (window.location.pathname.includes('add-opd') ? 'OPD' : 'IPD');
+
     if (incomingPatient) {
       handleEditInEffect(incomingPatient);
-    } else if (incomingFormType) {
-      setFormData(prev => {
-        let newNumber = prev.ipdNumber || `IPD-1001`;
-        if (incomingFormType === "IPD" && newNumber.startsWith("OPD-")) {
-          newNumber = newNumber.replace("OPD-", "IPD-");
-        } else if (incomingFormType === "OPD" && newNumber.startsWith("IPD-")) {
-          newNumber = newNumber.replace("IPD-", "OPD-");
-        }
-        return { ...prev, formType: incomingFormType, ipdNumber: newNumber };
-      });
+    } else {
+      const newNumber = getNextNumber(incomingFormType);
+      setFormData(prev => ({
+        ...prev,
+        formType: incomingFormType,
+        ipdNumber: newNumber
+      }));
+      localStorage.setItem(incomingFormType === 'IPD' ? "lastIpdNumber" : "lastOpdNumber", newNumber);
     }
   }, [location]);
 
@@ -242,13 +241,7 @@ export default function AddPatient() {
 
           <h3 className="text-center font-semibold mb-3 text-lg mt-2 uppercase text-green-900 border-b pb-2">{formData.formType === 'OPD' ? 'OPD FILE' : 'ADMISSION FILE (IPD) - PAGE 1'}</h3>
 
-          <div className="flex justify-center mb-4 no-print" data-html2canvas-ignore="true">
-            <label className="mr-2 font-semibold">Form Type:</label>
-            <select name="formType" value={formData.formType} onChange={handleChange} className="border p-2 rounded bg-gray-50">
-              <option value="IPD">IPD</option>
-              <option value="OPD">OPD</option>
-            </select>
-          </div>
+
 
           <div className="grid grid-cols-3 gap-4">
             {/* Left Column Page 1 */}

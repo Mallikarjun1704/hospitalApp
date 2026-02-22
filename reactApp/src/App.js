@@ -36,86 +36,106 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={isLoggedIn ? ( <Navigate to="/dashboard" replace />) : (
-              <Login onLogin={handleLogin} onForgotPassword={handleForgotPassword} />
-            )
-          }
+        <Route path="/" element={isLoggedIn ? (<Navigate to="/dashboard" replace />) : (
+          <Login onLogin={handleLogin} onForgotPassword={handleForgotPassword} />
+        )
+        }
         />
-        <Route path="/dashboard" element={ isLoggedIn ? (<Dashboard />) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/dashboard" element={isLoggedIn ? (<Dashboard />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-        <Route path="/details/patient-details" element={ isLoggedIn ? (<Patientdetails /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/patient-details" element={isLoggedIn ? (<Patientdetails />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-          <Route path="/medicine-inventory" element={ isLoggedIn ? (<MedicineInventory />) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route path="/add-medicine" element={ isLoggedIn ? (<AddMedicine />) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route path="/edit-medicine/:id" element={ isLoggedIn ? (<AddMedicine />) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-        <Route path="/cards" element={ isLoggedIn ? (<Card /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/ipd-patients" element={isLoggedIn ? (<Patientdetails type="IPD" />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-         <Route path="/details/cash-bill"element={ isLoggedIn ? (<CashBill /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/opd-patients" element={isLoggedIn ? (<Patientdetails type="OPD" />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-        <Route path="/details/cash-bill/table" element={ isLoggedIn ? (<CashBillTable /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/medicine-inventory" element={isLoggedIn ? (<MedicineInventory />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-         <Route path="/details/Medical-bill"element={ isLoggedIn ? (<Medical /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/add-medicine" element={isLoggedIn ? (<AddMedicine />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-        <Route path="/details/medical-bill" element={ isLoggedIn ? (<Medical />) : (<Navigate to="/" replace />)} />
-        <Route path="/details/medical-bill/table" element={ isLoggedIn ? (<MedicalBillTable /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/edit-medicine/:id" element={isLoggedIn ? (<AddMedicine />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-         <Route path="/details/discharge-form"element={ isLoggedIn ? (<DischargeForm /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/cards" element={isLoggedIn ? (<Card />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-         <Route path="/details/add-patient" element={ isLoggedIn ? (<AddPatient /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/cash-bill" element={isLoggedIn ? (<CashBill />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-         <Route path="/details/lab-diagnostics"element={ isLoggedIn ? (<LabDiagnostics /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/cash-bill/table" element={isLoggedIn ? (<CashBillTable />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-        <Route path="/details/lab-bill/table" element={ isLoggedIn ? (<LabBillTable /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/Medical-bill" element={isLoggedIn ? (<Medical />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
-        <Route path="/details/add-lab-test" element={ isLoggedIn ? (<AddLabTest /> ) : (
-              <Navigate to="/" replace />
-            )
-          }
+        <Route path="/details/medical-bill" element={isLoggedIn ? (<Medical />) : (<Navigate to="/" replace />)} />
+        <Route path="/details/medical-bill/table" element={isLoggedIn ? (<MedicalBillTable />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/discharge-form" element={isLoggedIn ? (<DischargeForm />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/add-patient" element={isLoggedIn ? (<AddPatient />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/add-ipd" element={isLoggedIn ? (<AddPatient />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/add-opd" element={isLoggedIn ? (<AddPatient />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/lab-diagnostics" element={isLoggedIn ? (<LabDiagnostics />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/lab-bill/table" element={isLoggedIn ? (<LabBillTable />) : (
+          <Navigate to="/" replace />
+        )
+        }
+        />
+        <Route path="/details/add-lab-test" element={isLoggedIn ? (<AddLabTest />) : (
+          <Navigate to="/" replace />
+        )
+        }
         />
       </Routes>
     </Router>

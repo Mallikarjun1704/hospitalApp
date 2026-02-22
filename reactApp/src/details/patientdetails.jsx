@@ -5,23 +5,27 @@ import PatientTable from "../helper/patientTable";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getAuthHeaders } from "../utils/api";
 
-const PatientDetail = () => {
+const PatientDetail = ({ type: propType }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
   const [patients, setPatients] = useState([]);
   const [querySearch, setQuerySearch] = useState('');
 
+  const type = propType || (window.location.pathname.includes('opd') ? 'OPD' : 'IPD');
+
   const fetchPatients = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/v1/patients`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to load patients');
       const data = await res.json();
-      setPatients(data.patients || data || []);
+      const allPatients = data.patients || data || [];
+      // Filter by type
+      setPatients(allPatients.filter(p => p.formType === type));
     } catch (err) {
       console.error(err);
     }
-  }, [API_URL]);
+  }, [API_URL, type]);
 
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   const handleGoBack = (event) => {
@@ -30,9 +34,9 @@ const PatientDetail = () => {
   };
 
   const handleAddPatient = () => {
-    // Navigate to the new Add Patient page and pass the current location so the form
-    // can return here when the user clicks Back.
-    navigate("/details/add-patient", { state: { from: location.pathname } });
+    // Navigate to the specific add form
+    const route = type === 'OPD' ? "/details/add-opd" : "/details/add-ipd";
+    navigate(route, { state: { from: location.pathname, formType: type } });
   };
 
   const handleSearch = async () => {
@@ -52,8 +56,9 @@ const PatientDetail = () => {
   };
 
   const handleEdit = (patient) => {
-    // navigate to AddPatient page with the patient data so the form can populate
-    navigate("/details/add-patient", { state: { patient, from: location.pathname } });
+    // navigate to the specific add form based on patient formType
+    const route = (patient.formType === 'OPD' || type === 'OPD') ? "/details/add-opd" : "/details/add-ipd";
+    navigate(route, { state: { patient, from: location.pathname, formType: patient.formType || type } });
   };
 
   const handleDelete = async (id) => {
@@ -73,13 +78,14 @@ const PatientDetail = () => {
       {/* Container matches typical table width so the button aligns with the table's right edge */}
       {/* Add top margin so there is a gap between Header and the table for the button */}
       <div className="max-w-6xl mx-auto relative mt-12">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">{type} Patient Details</h2>
         {/* Back button positioned above the table within the gap */}
         <div className="absolute right-4 -top-10 no-print z-10 flex space-x-3 items-center">
           <input
             type="text"
             value={querySearch}
             onChange={(e) => setQuerySearch(e.target.value)}
-            placeholder="Search by IPD or contact"
+            placeholder={`Search ${type} by ${type === 'IPD' ? 'IPD' : 'OPD'} No or contact`}
             className="border p-2 rounded mr-2"
           />
           <button onClick={handleSearch} className="px-3 py-1 bg-indigo-500 text-white rounded btn-tactile hover:bg-indigo-600 shadow-sm font-medium">Search</button>
@@ -88,7 +94,7 @@ const PatientDetail = () => {
             onClick={handleAddPatient}
             className="px-6 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md"
           >
-            + Add Patient
+            + Add {type} Patient
           </button>
           <button
             type="button"
