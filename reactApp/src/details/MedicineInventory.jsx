@@ -61,15 +61,15 @@ export default function MedicineInventory() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate('/dashboard')}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="px-4 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600"
             >
               Back to Dashboard
             </button>
             <button
               onClick={handleAddMedicine}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md"
             >
-              Add Medicine
+              + Add Medicine
             </button>
           </div>
         </div>
@@ -117,13 +117,13 @@ export default function MedicineInventory() {
                     <td className="px-6 py-4 whitespace-nowrap space-x-3">
                       <button
                         onClick={() => handleEdit(medicine._id)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="bg-amber-500 text-white px-3 py-1 rounded btn-tactile hover:bg-amber-600 font-medium shadow-sm"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(medicine._id)}
-                        className="text-red-600 hover:text-red-900"
+                        className="bg-rose-600 text-white px-3 py-1 rounded btn-tactile hover:bg-rose-700 font-medium shadow-sm"
                       >
                         Delete
                       </button>
@@ -136,7 +136,7 @@ export default function MedicineInventory() {
         </div>
         <div className="mt-6 flex items-center space-x-3">
           <button
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-sm"
             onClick={() => {
               try {
                 const headers = ['code', 'name', 'stock', 'purchasePrice', 'salePrice', 'purchaseDate', 'expiryDate', 'manufacturer', 'description'];

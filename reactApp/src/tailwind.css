@@ -1,3 +1,9 @@
 @tailwind base;      
 @tailwind components; 
 @tailwind utilities;  
+
+@layer components {
+  .btn-tactile {
+    @apply transition-all duration-100 active:scale-95 active:shadow-inner;
+  }
+}

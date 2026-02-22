@@ -529,34 +529,34 @@ const Medical = () => {
           </div>
         </div>
       </div>
-      <div className="flex justify-center">
+      <div className="flex justify-center mt-6 pb-10">
         <button
           onClick={addNewRow}
-          className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 no-print"
+          className="px-8 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md no-print"
         >
           Add New Row
         </button>
         <button
           onClick={removeLastRow}
-          className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 no-print ml-4"
+          className="px-8 py-2 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 font-medium shadow-md no-print ml-4"
         >
           Remove Last Row
         </button>
         <button
           onClick={generatePDF}
-          className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
+          className="px-8 py-2 bg-indigo-600 text-white rounded btn-tactile hover:bg-indigo-700 font-medium shadow-md no-print ml-4"
         >
           Download PDF
         </button>
         <button
           onClick={handleGoBack}
-          className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 no-print ml-4"
+          className="px-8 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 font-medium shadow-md no-print ml-4"
         >
           Back
         </button>
         <button
           onClick={saveBill}
-          className="px-6 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 no-print ml-4"
+          className="px-10 py-2 bg-blue-600 text-white rounded btn-tactile hover:bg-blue-700 font-bold shadow-lg no-print ml-4"
         >
           {isEdit ? (isAdmin ? 'Update Bill' : 'Save Bill') : 'Save Bill'}
         </button>

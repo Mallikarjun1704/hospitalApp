@@ -44,6 +44,7 @@ const Cashbill = () => {
 
   const [editingId, setEditingId] = useState(null);
   const isAdmin = localStorage.getItem('userType') === 'admin';
+  const isEdit = !!editingId;
 
   const [patientIdCounter, setPatientIdCounter] = useState(1);
 
@@ -180,7 +181,7 @@ const Cashbill = () => {
     });
   };
 
-  const addRow = () => {
+  const addNewRow = () => {
     const newServices = [...data.services];
     const nextNo = newServices.length > 0 ? (newServices[newServices.length - 1].no + 1) : 1;
     newServices.push({ no: nextNo, service: '', price: '', quantity: '', total: '' });
@@ -194,6 +195,12 @@ const Cashbill = () => {
     const renumbered = newServices.map((s, i) => ({ ...s, no: i + 1 }));
     const updatedTotal = renumbered.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
     setData({ ...data, services: renumbered, total: updatedTotal, netPayable: updatedTotal });
+  };
+
+  const removeLastRow = () => {
+    if (data.services.length > 0) {
+      removeRow(data.services.length - 1);
+    }
   };
 
   const saveBill = async () => {
@@ -485,7 +492,7 @@ const Cashbill = () => {
                     <input type="text" value={service.total} readOnly className="w-full p-1" />
                   </td>
                   <td className="p-2 border">
-                    <button aria-label={`Remove row ${index + 1}`} title="Remove" className="px-2 py-1 bg-red-500 text-white rounded" onClick={() => removeRow(index)}>×</button>
+                    <button aria-label={`Remove row ${index + 1}`} title="Remove" className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm" onClick={() => removeRow(index)}>×</button>
                   </td>
                 </tr>
               ))}
@@ -528,23 +535,37 @@ const Cashbill = () => {
               />
             </p>
           </div>
-          <div className="flex justify-center space-x-2 mt-4 no-print">
+          <div className="flex justify-center mt-6 pb-10">
             <button
-              onClick={handleGoBack}
-              className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600"
+              onClick={addNewRow}
+              className="px-8 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md no-print"
             >
-              Back
+              Add New Row
             </button>
-
+            <button
+              onClick={removeLastRow}
+              className="px-8 py-2 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 font-medium shadow-md no-print ml-4"
+            >
+              Remove Last Row
+            </button>
             <button
               onClick={generatePDF}
-              className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600"
+              className="px-8 py-2 bg-indigo-600 text-white rounded btn-tactile hover:bg-indigo-700 font-medium shadow-md no-print ml-4"
             >
               Download PDF
             </button>
-
-            <button className="px-4 py-2 bg-green-500 text-white rounded" onClick={addRow}>Add Row</button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={saveBill}>{editingId ? (isAdmin ? 'Update Bill' : 'Save Bill') : 'Save Bill'}</button>
+            <button
+              onClick={handleGoBack}
+              className="px-8 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 font-medium shadow-md no-print ml-4"
+            >
+              Back
+            </button>
+            <button
+              onClick={saveBill}
+              className="px-10 py-2 bg-blue-600 text-white rounded btn-tactile hover:bg-blue-700 font-bold shadow-lg no-print ml-4"
+            >
+              {isEdit ? (isAdmin ? 'Update Bill' : 'Save Bill') : 'Save Bill'}
+            </button>
           </div>
         </div>
       </div>

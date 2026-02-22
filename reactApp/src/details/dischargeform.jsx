@@ -378,14 +378,14 @@ const PatientForm = () => {
               <button
                 type="button"
                 onClick={generatePDF}
-                className="px-8 py-3 bg-blue-600 text-white font-bold rounded shadow-lg hover:bg-blue-700"
+                className="px-8 py-3 bg-indigo-600 text-white font-bold rounded btn-tactile shadow-lg hover:bg-indigo-700 font-medium"
               >
                 Download PDF
               </button>
               <button
                 type="button"
                 onClick={handleGoBack}
-                className="px-8 py-3 bg-gray-500 text-white font-bold rounded shadow-lg hover:bg-gray-600 ml-4"
+                className="px-8 py-3 bg-slate-500 text-white font-bold rounded btn-tactile shadow-lg hover:bg-slate-600 font-medium ml-4"
               >
                 Back
               </button>

@@ -42,14 +42,14 @@ const LabBillTable = () => {
         <h2 className="font-bold text-lg text-center">Lab Bills</h2>
         <div className="flex justify-between mt-4 mb-2">
           <div>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded mr-2" onClick={() => navigate(-1)}>Back</button>
-            <button className="px-4 py-2 bg-green-600 text-white rounded" onClick={() => navigate('/details/lab-diagnostics')}>Generate Lab Bill</button>
+            <button className="px-4 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 mr-2" onClick={() => navigate(-1)}>Back</button>
+            <button className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md" onClick={() => navigate('/details/lab-diagnostics')}>Generate Lab Bill</button>
           </div>
           <div className="flex items-center space-x-2">
             <input placeholder="Filter by contact" value={contactFilter} onChange={(e) => setContactFilter(e.target.value)} className="p-2 border" />
-            <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => fetchBills(contactFilter)}>Filter</button>
-            <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => { setContactFilter(''); fetchBills(''); }}>Clear</button>
-            <button className="px-3 py-1 bg-green-600 text-white rounded" onClick={() => navigate('/details/add-lab-test')}>Add New Lab Test</button>
+            <button className="px-3 py-1 bg-indigo-500 text-white rounded btn-tactile hover:bg-indigo-600 shadow-sm" onClick={() => fetchBills(contactFilter)}>Filter</button>
+            <button className="px-3 py-1 bg-slate-200 text-slate-700 rounded btn-tactile hover:bg-slate-300" onClick={() => { setContactFilter(''); fetchBills(''); }}>Clear</button>
+            <button className="px-3 py-1 bg-blue-600 text-white rounded btn-tactile hover:bg-blue-700 font-medium shadow-sm" onClick={() => navigate('/details/add-lab-test')}>+ Add Lab Test</button>
           </div>
         </div>
 
@@ -80,14 +80,14 @@ const LabBillTable = () => {
                     <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0)}</td>
                     <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0)}</td>
                     <td className="p-2 border">{b.date ? new Date(b.date).toLocaleDateString() : '-'}</td>
-                    <td className="p-2 border space-x-2">
+                    <td className="p-2 border space-x-2 whitespace-nowrap">
                       {isAdmin && (
                         <>
-                          <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>
-                          <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => del(b._id)}>Delete</button>
+                          <button className="px-2 py-1 bg-amber-500 text-white rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium" onClick={() => editBill(b._id)}>Edit</button>
+                          <button className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium" onClick={() => del(b._id)}>Delete</button>
                         </>
                       )}
-                      <button className="px-2 py-1 bg-gray-300 rounded" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
+                      <button className="px-2 py-1 bg-blue-500 text-white rounded btn-tactile hover:bg-blue-600 shadow-sm" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
                     </td>
                   </tr>
                   {expanded[b._id] && (

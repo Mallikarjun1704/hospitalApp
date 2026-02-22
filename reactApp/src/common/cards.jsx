@@ -230,7 +230,7 @@ const Card = () => {
         {cards.map((card) => (
           <div
             key={card.id}
-            className={`flex flex-col items-center bg-white border rounded-lg shadow-md text-black relative overflow-hidden ${card.sizeClass} hover:scale-105 transition-transform duration-150`}
+            className={`flex flex-col items-center bg-white border rounded-lg shadow-md text-black relative overflow-hidden cursor-pointer ${card.sizeClass} hover:scale-105 active:scale-95 transition-all duration-150`}
             style={{ borderColor: card.borderColor }}
             onClick={() => handleInputChange(card)}
           >
@@ -300,9 +300,10 @@ const Card = () => {
               return (
                 <div
                   key={label}
-                  className={`flex flex-col items-center bg-white border rounded-lg shadow-lg px-4 py-6 text-black relative cursor-pointer hover:shadow-xl transition-shadow duration-150`}
-                  style={{ borderColor: selectedCard.borderColor }}
-
+                  className={`bg-white rounded-lg shadow hover:shadow-lg transition-all duration-150 cursor-pointer overflow-hidden border-b-4 btn-tactile ${label === 'Daily' ? 'border-blue-500 active:scale-95' :
+                      label === 'Monthly' ? 'border-emerald-500 active:scale-95' :
+                        'border-purple-500 active:scale-95'
+                    }`}
                   onClick={() => {
                     if (label !== 'Daily') return;
                     // Open daily modal only when there's data for the selected card
@@ -313,16 +314,13 @@ const Card = () => {
                     else if (selectedCard.title === 'LAB Bill' && labDailyDetails && labDailyDetails.items && labDailyDetails.items.length) setShowDailyModal(true);
                   }}
                 >
-                  <div className="w-full h-14 absolute top-0" style={{ backgroundColor: selectedCard.bgColor }}></div>
-                  <div className="w-full pt-14 z-10 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      {getIcon(selectedCard.title)}
-                      <h1 className="text-xl font-semibold text-white">{isPatient ? yearTotalPatients : selectedCard.count}</h1>
-                    </div>
+                  <div className="flex flex-col items-center justify-center p-4">
+                    <p className={`text-xl font-bold ${label === 'Daily' ? 'text-blue-600' : label === 'Monthly' ? 'text-emerald-600' : 'text-purple-600'}`}>{formatCurrency(amount)}</p>
+                    <div className="text-gray-500 text-sm mt-1">{subText}</div>
                   </div>
-                  <h3 className="text-sm mt-3 z-10 text-gray-800">{label}</h3>
-                  <div className="text-sm my-2 text-blue-500">Revenue: {formatCurrency(amount)}</div>
-                  <div className="text-sm text-gray-700">{subText}</div>
+                  <div className={`text-center py-2 text-white text-xs font-semibold ${label === 'Daily' ? 'bg-blue-500' : label === 'Monthly' ? 'bg-emerald-500' : 'bg-purple-500'}`}>
+                    {label.toUpperCase()}
+                  </div>
                 </div>
               );
             })}
@@ -346,7 +344,7 @@ const Card = () => {
               ) : selectedCard && selectedCard.title === 'Medicine Inventory' ? (
                 <h3 className="text-lg font-semibold">Medicine Inventory - Low Stock ({medicineStats.lowStockCount}) - Total Stock: {medicineStats.totalStock}</h3>
               ) : null}
-              <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => setShowDailyModal(false)}>Close</button>
+              <button className="px-4 py-1 bg-red-500 text-white rounded btn-tactile hover:bg-red-600" onClick={() => setShowDailyModal(false)}>Close</button>
             </div>
             <div className="overflow-auto max-h-80">
               {selectedCard && selectedCard.title === 'Patient Detail' ? (

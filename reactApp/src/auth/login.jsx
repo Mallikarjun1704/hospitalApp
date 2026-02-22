@@ -71,7 +71,7 @@ const Login = ({ onLogin, onForgotPassword }) => {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className={`bg-green-400 text-white py-2 px-4 rounded mb-4 transition w-full ${loading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-green-500'}`}
+          className={`bg-emerald-600 text-white py-2 px-4 rounded mb-4 transition w-full btn-tactile font-semibold shadow-md ${loading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-emerald-700'}`}
         >
           {loading ? 'Signing in...' : 'Sign In'}
         </button>

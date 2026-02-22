@@ -434,12 +434,12 @@ export default function AddPatient() {
         )}
 
         {/* Global Action Buttons */}
-        <div className="flex justify-center gap-3 mt-8 pb-8 no-print" data-html2canvas-ignore="true">
-          <button type="submit" onClick={handleSubmit} className="px-8 py-3 bg-green-600 font-bold shadow-md text-white rounded hover:bg-green-700">
+        <div className="flex justify-center gap-4 mt-8 pb-8 no-print" data-html2canvas-ignore="true">
+          <button type="submit" onClick={handleSubmit} className="px-8 py-3 bg-emerald-600 font-bold shadow-md text-white rounded btn-tactile hover:bg-emerald-700">
             {editingId ? (isAdmin ? 'Update Record' : 'Save Record') : 'Save Record'}
           </button>
-          <button type="button" onClick={generatePDF} className="px-8 py-3 bg-blue-600 font-bold shadow-md text-white rounded hover:bg-blue-700">Download PDF</button>
-          <button type="button" onClick={handleGoBack} className="px-8 py-3 bg-gray-500 font-bold shadow-md text-white rounded hover:bg-gray-600">Back</button>
+          <button type="button" onClick={generatePDF} className="px-8 py-3 bg-indigo-600 font-bold shadow-md text-white rounded btn-tactile hover:bg-indigo-700">Download PDF</button>
+          <button type="button" onClick={handleGoBack} className="px-8 py-3 bg-slate-500 font-bold shadow-md text-white rounded btn-tactile hover:bg-slate-600">Back</button>
         </div>
 
       </div>
