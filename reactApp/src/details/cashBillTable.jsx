@@ -89,15 +89,15 @@ const CashBillTable = () => {
                 <th className="p-2 border">Advance</th>
                 <th className="p-2 border">Net Payable</th>
                 <th className="p-2 border">Date</th>
-                <th className="p-2 border">Actions</th>
+                {isAdmin && <th className="p-2 border">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={11} className="p-4">Loading...</td></tr>
+                <tr><td colSpan={isAdmin ? 11 : 10} className="p-4">Loading...</td></tr>
               )}
               {!loading && bills.length === 0 && (
-                <tr><td colSpan={11} className="p-4">No bills found</td></tr>
+                <tr><td colSpan={isAdmin ? 11 : 10} className="p-4">No bills found</td></tr>
               )}
               {bills.map((b, i) => (
                 <tr key={b._id} className="border-t">
@@ -111,10 +111,12 @@ const CashBillTable = () => {
                   <td className="p-2 border">{b.advancePayment || 0}</td>
                   <td className="p-2 border">{b.netPayable || 0}</td>
                   <td className="p-2 border">{b.admissionDate ? formatDate(new Date(b.admissionDate)) : (b.date ? formatDate(new Date(b.date)) : '-')}</td>
-                  <td className="p-2 border space-x-2">
-                    {isAdmin && <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>}
-                    <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => deleteBill(b._id)}>Delete</button>
-                  </td>
+                  {isAdmin && (
+                    <td className="p-2 border space-x-2">
+                      <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>
+                      <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => deleteBill(b._id)}>Delete</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

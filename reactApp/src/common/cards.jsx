@@ -80,6 +80,8 @@ const Card = () => {
   const [dailyDetails, setDailyDetails] = useState({ totalAmount: 0, count: 0, patients: [], dailyStart: null });
   const [pharmacyRevenue, setPharmacyRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
   const [pharmacyDailyDetails, setPharmacyDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
+  const [medicalRevenue, setMedicalRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
+  const [medicalDailyDetails, setMedicalDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
   const [cashRevenue, setCashRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
   const [cashDailyDetails, setCashDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
   const [labRevenue, setLabRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
@@ -146,8 +148,8 @@ const Card = () => {
         const res = await fetch(`${API_URL}/api/v1/medicalbills/revenue/stats`, { headers: getAuthHeaders() });
         if (!res.ok) throw new Error('Failed to fetch sales');
         const data = await res.json();
-        if (data.revenue) setPharmacyRevenue({ daily: data.revenue.daily || 0, monthly: data.revenue.monthly || 0, yearly: data.revenue.yearly || 0, total: data.revenue.total || 0 });
-        if (data.dailyDetails) setPharmacyDailyDetails({ totalAmount: data.dailyDetails.totalAmount || 0, count: data.dailyDetails.count || 0, items: data.dailyDetails.items || [] });
+        if (data.revenue) setMedicalRevenue({ daily: data.revenue.daily || 0, monthly: data.revenue.monthly || 0, yearly: data.revenue.yearly || 0, total: data.revenue.total || 0 });
+        if (data.dailyDetails) setMedicalDailyDetails({ totalAmount: data.dailyDetails.totalAmount || 0, count: data.dailyDetails.count || 0, items: data.dailyDetails.items || [] });
       } catch (err) { console.error('Could not fetch sales', err); }
     };
 
@@ -260,10 +262,12 @@ const Card = () => {
               const revenueSource = isPatient
                 ? revenue
                 : selectedCard.title === 'Hospital Cash Bill'
-                ? cashRevenue
-                : selectedCard.title === 'LAB Bill'
-                ? labRevenue
-                : pharmacyRevenue;
+                  ? cashRevenue
+                  : selectedCard.title === 'LAB Bill'
+                    ? labRevenue
+                    : selectedCard.title === 'Pharmacy Bill'
+                      ? medicalRevenue
+                      : pharmacyRevenue;
 
               const amount = label === 'Daily' ? revenueSource.daily : label === 'Monthly' ? revenueSource.monthly : revenueSource.yearly;
 
@@ -271,19 +275,21 @@ const Card = () => {
               let count = 0;
               if (isPatient) {
                 count = label === 'Daily' ? (dailyDetails.count || counts.daily) : label === 'Monthly' ? counts.monthly : counts.yearly;
-              } else if (selectedCard.title === 'Pharmacy Bill' || selectedCard.title === 'Medicine Inventory') {
-                count = label === 'Daily' ? (pharmacyDailyDetails.count || 0) : 0;
+              } else if (selectedCard.title === 'Pharmacy Bill') {
+                count = label === 'Daily' ? (medicalDailyDetails.count || 0) : (label === 'Monthly' ? medicalRevenue.monthlyCount : medicalRevenue.yearlyCount);
+              } else if (selectedCard.title === 'Medicine Inventory') {
+                count = label === 'Daily' ? (pharmacyDailyDetails.count || 0) : (label === 'Monthly' ? pharmacyRevenue.monthlyCount : pharmacyRevenue.yearlyCount);
               } else if (selectedCard.title === 'Hospital Cash Bill') {
-                count = label === 'Daily' ? (cashDailyDetails.count || 0) : 0;
+                count = label === 'Daily' ? (cashDailyDetails.count || 0) : (label === 'Monthly' ? cashRevenue.monthlyCount : cashRevenue.yearlyCount);
               } else if (selectedCard.title === 'LAB Bill') {
-                count = label === 'Daily' ? (labDailyDetails.count || 0) : 0;
+                count = label === 'Daily' ? (labDailyDetails.count || 0) : (label === 'Monthly' ? labRevenue.monthlyCount : labRevenue.yearlyCount);
               }
               // determine subtitle text depending on selected card
               let subText = '';
               if (selectedCard.title === 'Medicine Inventory') {
                 subText = `Stock: ${medicineStats.totalStock || 0} (Low: ${medicineStats.lowStockCount || 0})`;
               } else if (selectedCard.title === 'Pharmacy Bill') {
-                subText = label === 'Daily' ? `Items: ${pharmacyDailyDetails.count || 0}` : `Items: -`;
+                subText = label === 'Daily' ? `Bills: ${medicalDailyDetails.count || 0}` : `Bills: -`;
               } else if (isPatient) {
                 subText = `Patients: ${count}`;
               } else if (selectedCard.title === 'Hospital Cash Bill') {
@@ -301,7 +307,7 @@ const Card = () => {
                     if (label !== 'Daily') return;
                     // Open daily modal only when there's data for the selected card
                     if (selectedCard.title === 'Patient Detail' && dailyDetails && dailyDetails.patients && dailyDetails.patients.length) setShowDailyModal(true);
-                    else if (selectedCard.title === 'Pharmacy Bill' && pharmacyDailyDetails && pharmacyDailyDetails.items && pharmacyDailyDetails.items.length) setShowDailyModal(true);
+                    else if (selectedCard.title === 'Pharmacy Bill' && medicalDailyDetails && medicalDailyDetails.items && medicalDailyDetails.items.length) setShowDailyModal(true);
                     else if (selectedCard.title === 'Medicine Inventory' && ((medicineStats && medicineStats.lowStockItems && medicineStats.lowStockItems.length) || (pharmacyDailyDetails && pharmacyDailyDetails.items && pharmacyDailyDetails.items.length))) setShowDailyModal(true);
                     else if (selectedCard.title === 'Hospital Cash Bill' && cashDailyDetails && cashDailyDetails.items && cashDailyDetails.items.length) setShowDailyModal(true);
                     else if (selectedCard.title === 'LAB Bill' && labDailyDetails && labDailyDetails.items && labDailyDetails.items.length) setShowDailyModal(true);
@@ -330,16 +336,16 @@ const Card = () => {
           <div className="bg-white w-11/12 md:w-3/4 lg:w-1/2 p-6 rounded shadow-lg">
             <div className="flex justify-between items-center mb-4">
               {selectedCard && selectedCard.title === 'Patient Detail' ? (
-                  <h3 className="text-lg font-semibold">Today's Patients ({dailyDetails.count}) - {formatCurrency(dailyDetails.totalAmount)}</h3>
-                ) : selectedCard && selectedCard.title === 'Pharmacy Bill' ? (
-                  <h3 className="text-lg font-semibold">Today's Pharmacy Sales ({pharmacyDailyDetails.count}) - {formatCurrency(pharmacyDailyDetails.totalAmount)}</h3>
-                ) : selectedCard && selectedCard.title === 'Hospital Cash Bill' ? (
-                  <h3 className="text-lg font-semibold">Today's Cash Bills ({cashDailyDetails.count}) - {formatCurrency(cashDailyDetails.totalAmount)}</h3>
-                ) : selectedCard && selectedCard.title === 'LAB Bill' ? (
-                  <h3 className="text-lg font-semibold">Today's Lab Bills ({labDailyDetails.count}) - {formatCurrency(labDailyDetails.totalAmount)}</h3>
-                  ) : selectedCard && selectedCard.title === 'Medicine Inventory' ? (
-                    <h3 className="text-lg font-semibold">Medicine Inventory - Low Stock ({medicineStats.lowStockCount}) - Total Stock: {medicineStats.totalStock}</h3>
-                  ) : null}
+                <h3 className="text-lg font-semibold">Today's Patients ({dailyDetails.count}) - {formatCurrency(dailyDetails.totalAmount)}</h3>
+              ) : selectedCard && selectedCard.title === 'Pharmacy Bill' ? (
+                <h3 className="text-lg font-semibold">Today's Medical Bills ({medicalDailyDetails.count}) - {formatCurrency(medicalDailyDetails.totalAmount)}</h3>
+              ) : selectedCard && selectedCard.title === 'Hospital Cash Bill' ? (
+                <h3 className="text-lg font-semibold">Today's Cash Bills ({cashDailyDetails.count}) - {formatCurrency(cashDailyDetails.totalAmount)}</h3>
+              ) : selectedCard && selectedCard.title === 'LAB Bill' ? (
+                <h3 className="text-lg font-semibold">Today's Lab Bills ({labDailyDetails.count}) - {formatCurrency(labDailyDetails.totalAmount)}</h3>
+              ) : selectedCard && selectedCard.title === 'Medicine Inventory' ? (
+                <h3 className="text-lg font-semibold">Medicine Inventory - Low Stock ({medicineStats.lowStockCount}) - Total Stock: {medicineStats.totalStock}</h3>
+              ) : null}
               <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => setShowDailyModal(false)}>Close</button>
             </div>
             <div className="overflow-auto max-h-80">
@@ -351,7 +357,7 @@ const Card = () => {
                   <tbody>
                     {dailyDetails.patients.map((p) => (
                       <tr key={p._id || `${p.ipdNumber}-${p.date}`} className="border-b">
-                        <td className="py-2">{p.date}</td>
+                        <td className="py-2">{new Date(p.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="py-2">{p.name}</td>
                         <td className="py-2">{p.ipdNumber}</td>
                         <td className="py-2">{p.contact}</td>
@@ -363,64 +369,64 @@ const Card = () => {
               ) : selectedCard && selectedCard.title === 'Pharmacy Bill' ? (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left border-b"><th className="pb-2">Time</th><th className="pb-2">Code</th><th className="pb-2">Name</th><th className="pb-2">Qty</th><th className="pb-2">Amount</th></tr>
+                    <tr className="text-left border-b"><th className="pb-2">Time</th><th className="pb-2">Patient Name</th><th className="pb-2">Contact</th><th className="pb-2">Amount</th></tr>
                   </thead>
                   <tbody>
-                    {pharmacyDailyDetails.items.map((it, idx) => (
-                      <tr key={`${it.medicineId}-${idx}`} className="border-b">
-                        <td className="py-2">{new Date(it.date || it._id?.date || Date.now()).toISOString()}</td>
-                        <td className="py-2">{it.uniqueCode}</td>
+                    {medicalDailyDetails.items.map((it, idx) => (
+                      <tr key={idx} className="border-b">
+                        <td className="py-2">{new Date(it.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="py-2">{it.name}</td>
-                        <td className="py-2">{it.quantity}</td>
-                        <td className="py-2">{formatCurrency(it.amount)}</td>
+                        <td className="py-2">{it.contact}</td>
+                        <td className="py-2">{formatCurrency(it.total)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                ) : selectedCard && selectedCard.title === 'Medicine Inventory' ? (
-                  <div>
-                    {/* Show today's pharmacy sales if present */}
-                    {pharmacyDailyDetails && pharmacyDailyDetails.items && pharmacyDailyDetails.items.length ? (
-                      <div className="mb-4">
-                        <h4 className="font-semibold mb-2">Today's Pharmacy Sales</h4>
-                        <table className="w-full text-sm mb-4">
-                          <thead>
-                            <tr className="text-left border-b"><th className="pb-2">Time</th><th className="pb-2">Code</th><th className="pb-2">Name</th><th className="pb-2">Qty</th><th className="pb-2">Amount</th></tr>
-                          </thead>
-                          <tbody>
-                            {pharmacyDailyDetails.items.map((it, idx) => (
-                              <tr key={`${it.medicineId}-${idx}`} className="border-b">
-                                <td className="py-2">{new Date(it.date || it._id?.date || Date.now()).toISOString()}</td>
-                                <td className="py-2">{it.uniqueCode}</td>
-                                <td className="py-2">{it.name}</td>
-                                <td className="py-2">{it.quantity}</td>
-                                <td className="py-2">{formatCurrency(it.amount)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
+              ) : selectedCard && selectedCard.title === 'Medicine Inventory' ? (
+                <div>
+                  {/* Show today's pharmacy sales if present */}
+                  {pharmacyDailyDetails && pharmacyDailyDetails.items && pharmacyDailyDetails.items.length ? (
+                    <div className="mb-4">
+                      <h4 className="font-semibold mb-2">Today's Pharmacy Sales</h4>
+                      <table className="w-full text-sm mb-4">
+                        <thead>
+                          <tr className="text-left border-b"><th className="pb-2">Time</th><th className="pb-2">Code</th><th className="pb-2">Name</th><th className="pb-2">Qty</th><th className="pb-2">Unit Price</th><th className="pb-2">Amount</th></tr>
+                        </thead>
+                        <tbody>
+                          {pharmacyDailyDetails.items.map((it, idx) => (
+                            <tr key={`${it.medicineId}-${idx}`} className="border-b">
+                              <td className="py-2">{new Date(it.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                              <td className="py-2">{it.uniqueCode}</td>
+                              <td className="py-2">{it.name}</td>
+                              <td className="py-2">{it.quantity}</td>
+                              <td className="py-2">{formatCurrency(it.unitPrice)}</td>
+                              <td className="py-2">{formatCurrency(it.amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
 
-                    {/* Show low stock items */}
-                    <h4 className="font-semibold mb-2">Low Stock Items ({medicineStats.lowStockCount})</h4>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left border-b"><th className="pb-2">Code</th><th className="pb-2">Name</th><th className="pb-2">Stock</th><th className="pb-2">Sale Price</th><th className="pb-2">Value</th></tr>
-                      </thead>
-                      <tbody>
-                        {(medicineStats.lowStockItems || []).map((m, i) => (
-                          <tr key={m._id || `${m.code}-${i}`} className="border-b">
-                            <td className="py-2">{m.code}</td>
-                            <td className="py-2">{m.name}</td>
-                            <td className="py-2">{m.stock}</td>
-                            <td className="py-2">{formatCurrency(m.salePrice)}</td>
-                            <td className="py-2">{formatCurrency((Number(m.stock)||0) * (Number(m.salePrice)||0))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {/* Show low stock items */}
+                  <h4 className="font-semibold mb-2">Low Stock Items ({medicineStats.lowStockCount})</h4>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left border-b"><th className="pb-2">Code</th><th className="pb-2">Name</th><th className="pb-2">Stock</th><th className="pb-2">Sale Price</th><th className="pb-2">Value</th></tr>
+                    </thead>
+                    <tbody>
+                      {(medicineStats.lowStockItems || []).map((m, i) => (
+                        <tr key={m._id || `${m.code}-${i}`} className="border-b">
+                          <td className="py-2">{m.code}</td>
+                          <td className="py-2">{m.name}</td>
+                          <td className="py-2">{m.stock}</td>
+                          <td className="py-2">{formatCurrency(m.salePrice)}</td>
+                          <td className="py-2">{formatCurrency((Number(m.stock) || 0) * (Number(m.salePrice) || 0))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : selectedCard && selectedCard.title === 'Hospital Cash Bill' ? (
                 <table className="w-full text-sm">
                   <thead>
@@ -429,7 +435,7 @@ const Card = () => {
                   <tbody>
                     {cashDailyDetails.items.map((p, i) => (
                       <tr key={i} className="border-b">
-                        <td className="py-2">{p.date}</td>
+                        <td className="py-2">{new Date(p.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="py-2">{p.name}</td>
                         <td className="py-2">{p.contact}</td>
                         <td className="py-2">{formatCurrency(p.total)}</td>
@@ -445,7 +451,7 @@ const Card = () => {
                   <tbody>
                     {labDailyDetails.items.map((p, i) => (
                       <tr key={i} className="border-b">
-                        <td className="py-2">{p.date}</td>
+                        <td className="py-2">{new Date(p.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="py-2">{p.name}</td>
                         <td className="py-2">{p.contact}</td>
                         <td className="py-2">{formatCurrency(p.total)}</td>

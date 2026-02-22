@@ -112,7 +112,9 @@ router.get('/revenue/stats', async (req, res) => {
       daily: (agg.daily[0] && agg.daily[0].daily) || 0,
       monthly: (agg.monthly[0] && agg.monthly[0].monthly) || 0,
       yearly: (agg.yearly[0] && agg.yearly[0].yearly) || 0,
-      total: (agg.totals[0] && agg.totals[0].total) || 0
+      total: (agg.totals[0] && agg.totals[0].total) || 0,
+      monthlyCount: (agg.monthly[0] && agg.monthly[0].count) || 0,
+      yearlyCount: (agg.yearly[0] && agg.yearly[0].count) || 0
     };
 
     const dailyDetails = {

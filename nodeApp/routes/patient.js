@@ -70,33 +70,25 @@ router.get('/', async (req, res) => {
     // For listing patients
     const patients = await Patient.find().sort({ createdAt: -1 });
 
-    // Compute revenue totals by amount using UTC day boundaries to ensure consistent 'today' definition
-    const now = new Date();
-    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(startOfMonth);
-    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const endOfYear = new Date(startOfYear);
-    endOfYear.setFullYear(endOfYear.getFullYear() + 1);
+    // Compute revenue totals by amount using local day boundaries
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+    const startOfYear = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
 
     const revenueFacets = await Patient.aggregate([
       {
         $facet: {
           daily: [
-            { $match: { date: { $gte: startOfDay, $lt: endOfDay } } },
+            { $match: { date: { $gte: startOfDay } } },
             { $group: { _id: null, total: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } } } }
           ],
           monthly: [
-            { $match: { date: { $gte: startOfMonth, $lt: endOfMonth } } },
+            { $match: { date: { $gte: startOfMonth } } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
           ],
           yearly: [
-            { $match: { date: { $gte: startOfYear, $lt: endOfYear } } },
+            { $match: { date: { $gte: startOfYear } } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
           ]
         }
@@ -117,110 +109,48 @@ router.get('/', async (req, res) => {
 // GET /stats
 router.get('/stats', async (req, res) => {
   try {
-    // Use timezone-aware date truncation when available to ensure correct 'today' semantics
-    // Default to UTC so daily refers to UTC-day boundaries and dates are reported as ISO Z timestamps.
-    const timezone = req.query.tz || process.env.STATS_TZ || 'UTC';
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+    const startOfYear = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
 
-    let daily = 0, monthly = 0, yearly = 0;
-    let dailyCount = 0, monthlyCount = 0, yearlyCount = 0, yearlyTotalPatients = 0;
-    let todaysPatients = [];
-
-    // Try using $dateTrunc aggregation (better timezone handling)
-    try {
-      const facets = await Patient.aggregate([
-        {
-          $facet: {
-            daily: [
-              { $match: { $expr: { $eq: [ { $dateTrunc: { date: "$date", unit: "day", timezone } }, { $dateTrunc: { date: "$$NOW", unit: "day", timezone } } ] } } },
-              { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
-            ],
-            monthly: [
-              { $match: { $expr: { $eq: [ { $dateTrunc: { date: "$date", unit: "month", timezone } }, { $dateTrunc: { date: "$$NOW", unit: "month", timezone } } ] } } },
-              { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
-            ],
-            yearly: [
-              { $match: { $expr: { $eq: [ { $dateTrunc: { date: "$date", unit: "year", timezone } }, { $dateTrunc: { date: "$$NOW", unit: "year", timezone } } ] } } },
-              { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
-            ],
-            yearlyTotalPatients: [
-              { $match: { $expr: { $eq: [ { $dateTrunc: { date: "$date", unit: "year", timezone } }, { $dateTrunc: { date: "$$NOW", unit: "year", timezone } } ] } } },
-              { $group: { _id: null, totalPatients: { $sum: 1 } } }
-            ]
-          }
+    const facets = await Patient.aggregate([
+      {
+        $facet: {
+          daily: [
+            { $match: { date: { $gte: startOfDay } } },
+            { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
+          ],
+          monthly: [
+            { $match: { date: { $gte: startOfMonth } } },
+            { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
+          ],
+          yearly: [
+            { $match: { date: { $gte: startOfYear } } },
+            { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
+          ],
+          yearlyTotalPatients: [
+            { $match: { date: { $gte: startOfYear } } },
+            { $group: { _id: null, totalPatients: { $sum: 1 } } }
+          ]
         }
-      ]);
+      }
+    ]);
 
-      daily = (facets[0].daily[0] && facets[0].daily[0].totalAmount) || 0;
-      monthly = (facets[0].monthly[0] && facets[0].monthly[0].totalAmount) || 0;
-      yearly = (facets[0].yearly[0] && facets[0].yearly[0].totalAmount) || 0;
+    const daily = (facets[0].daily[0] && facets[0].daily[0].totalAmount) || 0;
+    const monthly = (facets[0].monthly[0] && facets[0].monthly[0].totalAmount) || 0;
+    const yearly = (facets[0].yearly[0] && facets[0].yearly[0].totalAmount) || 0;
 
-      dailyCount = (facets[0].daily[0] && facets[0].daily[0].count) || 0;
-      monthlyCount = (facets[0].monthly[0] && facets[0].monthly[0].count) || 0;
-      yearlyCount = (facets[0].yearly[0] && facets[0].yearly[0].count) || 0;
+    const dailyCount = (facets[0].daily[0] && facets[0].daily[0].count) || 0;
+    const monthlyCount = (facets[0].monthly[0] && facets[0].monthly[0].count) || 0;
+    const yearlyCount = (facets[0].yearly[0] && facets[0].yearly[0].count) || 0;
 
-      yearlyTotalPatients = (facets[0].yearlyTotalPatients[0] && facets[0].yearlyTotalPatients[0].totalPatients) || 0;
+    const yearlyTotalPatients = (facets[0].yearlyTotalPatients[0] && facets[0].yearlyTotalPatients[0].totalPatients) || 0;
 
-      // Get today's patients using the same truncation logic
-      todaysPatients = await Patient.aggregate([
-        { $match: { $expr: { $eq: [ { $dateTrunc: { date: "$date", unit: "day", timezone } }, { $dateTrunc: { date: "$$NOW", unit: "day", timezone } } ] } } },
-        { $project: { name: 1, ipdNumber: 1, amount: 1, date: 1, contact: 1, consultDoctor: 1 } },
-        { $sort: { date: 1, createdAt: 1 } }
-      ]);
-    } catch (err) {
-      // If $dateTrunc is not supported (older MongoDB), fall back to start/end range calculation
-      // Use UTC start/end so daily refers consistently to 00:00:00.000Z - 23:59:59.999Z
-      console.warn('Stats: $dateTrunc unavailable or failed, falling back to start/end ranges', err.message);
-      const now = new Date();
-      const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
-
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(startOfMonth);
-      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const endOfYear = new Date(startOfYear);
-      endOfYear.setFullYear(endOfYear.getFullYear() + 1);
-
-      const facets = await Patient.aggregate([
-        {
-          $facet: {
-            daily: [
-              { $match: { date: { $gte: startOfDay, $lt: endOfDay } } },
-              { $group: { _id: null, totalAmount: { $sum: { $toDouble: { $ifNull: ["$amount", 0] } } }, count: { $sum: 1 } } }
-            ],
-            monthly: [
-              { $match: { date: { $gte: startOfMonth, $lt: endOfMonth } } },
-              { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
-            ],
-            yearly: [
-              { $match: { date: { $gte: startOfYear, $lt: endOfYear } } },
-              { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
-            ],
-            yearlyTotalPatients: [
-              { $match: { date: { $gte: startOfYear, $lt: endOfYear } } },
-              { $group: { _id: null, totalPatients: { $sum: 1 } } }
-            ]
-          }
-        }
-      ]);
-
-      daily = (facets[0].daily[0] && facets[0].daily[0].totalAmount) || 0;
-      monthly = (facets[0].monthly[0] && facets[0].monthly[0].totalAmount) || 0;
-      yearly = (facets[0].yearly[0] && facets[0].yearly[0].totalAmount) || 0;
-
-      dailyCount = (facets[0].daily[0] && facets[0].daily[0].count) || 0;
-      monthlyCount = (facets[0].monthly[0] && facets[0].monthly[0].count) || 0;
-      yearlyCount = (facets[0].yearly[0] && facets[0].yearly[0].count) || 0;
-
-      yearlyTotalPatients = (facets[0].yearlyTotalPatients[0] && facets[0].yearlyTotalPatients[0].totalPatients) || 0;
-
-      todaysPatients = await Patient.find({ date: { $gte: startOfDay, $lt: endOfDay } })
-        .select('name ipdNumber amount date contact consultDoctor')
-        .sort({ date: 1, createdAt: 1 })
-        .lean();
-    }
+    let todaysPatients = await Patient.find({ date: { $gte: startOfDay } })
+      .select('name ipdNumber amount date contact consultDoctor')
+      .sort({ date: 1, createdAt: 1 })
+      .lean();
 
     // Convert patient dates to ISO strings (Z) for consistent client consumption
     if (Array.isArray(todaysPatients)) {
@@ -231,14 +161,7 @@ router.get('/stats', async (req, res) => {
       }));
     }
 
-    // Sanity-check: if daily sum is zero but we have today's patients (from the aggregation), log sample rows
-    if (daily === 0 && Array.isArray(todaysPatients) && todaysPatients.length) {
-      const sampleToday = todaysPatients.slice(0, 5).map(p => ({ date: p.date, amount: p.amount }));
-      //console.warn('Stats: daily sum is 0 but found patient records for today:', sampleToday);
-    }
-
-    // dailyDetails already uses the todaysPatients collected above (either via $dateTrunc or fallback)
-    const dailyDetails = { totalAmount: daily, count: dailyCount, patients: todaysPatients, dailyStart: (new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()))).toISOString() };
+    const dailyDetails = { totalAmount: daily, count: dailyCount, patients: todaysPatients };
 
     res.json({
       revenue: { daily, monthly, yearly },

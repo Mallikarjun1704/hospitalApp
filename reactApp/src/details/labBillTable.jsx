@@ -81,8 +81,12 @@ const LabBillTable = () => {
                     <td className="p-2 border">{(b.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0)}</td>
                     <td className="p-2 border">{b.date ? new Date(b.date).toLocaleDateString() : '-'}</td>
                     <td className="p-2 border space-x-2">
-                      {isAdmin && <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>}
-                      <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => del(b._id)}>Delete</button>
+                      {isAdmin && (
+                        <>
+                          <button className="px-2 py-1 bg-yellow-500 text-white rounded" onClick={() => editBill(b._id)}>Edit</button>
+                          <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => del(b._id)}>Delete</button>
+                        </>
+                      )}
                       <button className="px-2 py-1 bg-gray-300 rounded" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
                     </td>
                   </tr>

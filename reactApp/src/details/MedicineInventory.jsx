@@ -95,7 +95,7 @@ export default function MedicineInventory() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purchase Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -113,22 +113,22 @@ export default function MedicineInventory() {
                   <td className="px-6 py-4 whitespace-nowrap">₹{medicine.salePrice}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{medicine.purchaseDate ? new Date(medicine.purchaseDate).toISOString().slice(0, 10) : ''}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{medicine.expiryDate ? new Date(medicine.expiryDate).toISOString().slice(0, 10) : ''}</td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-3">
-                    {isAdmin && (
+                  {isAdmin && (
+                    <td className="px-6 py-4 whitespace-nowrap space-x-3">
                       <button
                         onClick={() => handleEdit(medicine._id)}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         Edit
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(medicine._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </td>
+                      <button
+                        onClick={() => handleDelete(medicine._id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

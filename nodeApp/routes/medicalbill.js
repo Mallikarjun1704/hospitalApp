@@ -78,6 +78,7 @@ router.delete('/:id', async (req, res) => {
 router.get('/revenue/stats', async (req, res) => {
   try {
     const today = new Date();
+    // Set to start of day/month/year in local timezone
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
     const startOfYear = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
@@ -98,7 +99,9 @@ router.get('/revenue/stats', async (req, res) => {
       daily: (agg.daily[0] && agg.daily[0].daily) || 0,
       monthly: (agg.monthly[0] && agg.monthly[0].monthly) || 0,
       yearly: (agg.yearly[0] && agg.yearly[0].yearly) || 0,
-      total: (agg.totals[0] && agg.totals[0].total) || 0
+      total: (agg.totals[0] && agg.totals[0].total) || 0,
+      monthlyCount: (agg.monthly[0] && agg.monthly[0].count) || 0,
+      yearlyCount: (agg.yearly[0] && agg.yearly[0].count) || 0
     };
 
     const dailyDetails = {

@@ -71,7 +71,7 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">IPD No.</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Admission</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Consultant</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Actions</th>
+                {(isAdmin || onView) && <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Actions</th>}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -83,34 +83,36 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
                   <td className="px-4 py-2 text-sm text-gray-700">{r.ipdNumber}</td>
                   <td className="px-4 py-2 text-sm text-gray-700">{r.date ? formatIsoDate(r.date) : formatIsoDate(r.admissionDate)}</td>
                   <td className="px-4 py-2 text-sm text-gray-700">{r.consultDoctor || r.consultantName}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">
-                    <div className="flex gap-2">
-                      {onEdit && isAdmin && (
-                        <button
-                          onClick={() => onEdit(r)}
-                          className="bg-yellow-300 px-3 py-1 rounded"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {onDelete && (
-                        <button
-                          onClick={() => onDelete(r._id || r.id)}
-                          className="bg-red-400 px-3 py-1 rounded"
-                        >
-                          Delete
-                        </button>
-                      )}
-                      {onView && (
-                        <button onClick={() => onView(r)} className="bg-blue-500 px-3 py-1 rounded text-white">View</button>
-                      )}
-                    </div>
-                  </td>
+                  {(isAdmin || onView) && (
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      <div className="flex gap-2">
+                        {onEdit && isAdmin && (
+                          <button
+                            onClick={() => onEdit(r)}
+                            className="bg-yellow-300 px-3 py-1 rounded"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {isAdmin && onDelete && (
+                          <button
+                            onClick={() => onDelete(r._id || r.id)}
+                            className="bg-red-400 px-3 py-1 rounded"
+                          >
+                            Delete
+                          </button>
+                        )}
+                        {onView && (
+                          <button onClick={() => onView(r)} className="bg-blue-500 px-3 py-1 rounded text-white">View</button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
               {currentData.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={7}>
+                  <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={isAdmin || onView ? 7 : 6}>
                     No records
                   </td>
                 </tr>

@@ -49,9 +49,9 @@ router.get("/sales/revenue", async (req, res) => {
     try {
         // We'll calculate daily/monthly/yearly revenue and return a dailyDetails list of today's sales
         const today = new Date();
-        const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0));
-        const startOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0));
-        const startOfYear = new Date(Date.UTC(today.getUTCFullYear(), 0, 1, 0, 0, 0));
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+        const startOfYear = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
 
         const [agg] = await Sale.aggregate([
             {
@@ -85,7 +85,9 @@ router.get("/sales/revenue", async (req, res) => {
             daily: (agg.daily[0] && agg.daily[0].daily) || 0,
             monthly: (agg.monthly[0] && agg.monthly[0].monthly) || 0,
             yearly: (agg.yearly[0] && agg.yearly[0].yearly) || 0,
-            total: (agg.totals[0] && agg.totals[0].total) || 0
+            total: (agg.totals[0] && agg.totals[0].total) || 0,
+            monthlyCount: (agg.monthly[0] && agg.monthly[0].count) || 0,
+            yearlyCount: (agg.yearly[0] && agg.yearly[0].count) || 0
         };
 
         const dailyDetails = {
