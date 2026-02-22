@@ -16,71 +16,57 @@ const Card = () => {
     {
       id: 1,
       title: "IPD Detail",
-      // larger card
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
-      // count will be replaced dynamically with ipdYearlyTotal when available
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 0,
-      bgColor: "#4795e8",
-      borderColor: "#2e83dd",
+      gradient: "from-blue-600 to-indigo-700",
       link: "/details/ipd-patients",
     },
     {
       id: 7,
       title: "OPD Detail",
-      // larger card
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
-      // count will be replaced dynamically with opdYearlyTotal when available
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 0,
-      bgColor: "#00b894",
-      borderColor: "#00a884",
+      gradient: "from-emerald-500 to-teal-700",
       link: "/details/opd-patients",
     },
     {
       id: 6,
       title: "Medicine Inventory",
-      // medium card
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 0,
-      bgColor: "#ff9f43",
-      borderColor: "#ff9f43",
+      gradient: "from-orange-400 to-red-600",
       link: "/medicine-inventory",
     },
     {
       id: 2,
       title: "Hospital Cash Bill",
-      // small card
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 57,
-      bgColor: "#673b77ff",
-      borderColor: "#2eddb1ff",
-      // open the table listing when clicking the card
+      gradient: "from-purple-600 to-fuchsia-800",
       link: "/details/cash-bill/table",
     },
     {
       id: 3,
       title: "Pharmacy Bill",
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 9,
-      bgColor: "#edc651",
-      borderColor: "#ffc107",
+      gradient: "from-amber-400 to-yellow-600",
       link: "/details/medical-bill/table",
     },
     {
       id: 4,
       title: "LAB Bill",
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 2,
-      bgColor: "#4abe65",
-      borderColor: "#28a745",
+      gradient: "from-green-500 to-lime-700",
       link: "/details/lab-bill/table",
     },
     {
       id: 5,
       title: "Discharge Form",
-      sizeClass: "w-54 sm:w-54 md:w-56 lg:w-60",
+      sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 3,
-      bgColor: "#7fd8f8",
-      borderColor: "#7fd8f8",
+      gradient: "from-sky-400 to-blue-600",
       link: "/details/discharge-form",
     },
   ];
@@ -91,6 +77,10 @@ const Card = () => {
   const [opdCounts, setOpdCounts] = useState({ daily: 0, monthly: 0, yearly: 0 });
   const [ipdYearlyTotal, setIpdYearlyTotal] = useState(0);
   const [opdYearlyTotal, setOpdYearlyTotal] = useState(0);
+  const [cashYearlyTotal, setCashYearlyTotal] = useState(0);
+  const [medicalYearlyTotal, setMedicalYearlyTotal] = useState(0);
+  const [labYearlyTotal, setLabYearlyTotal] = useState(0);
+  const [medicineCount, setMedicineCount] = useState(0);
   const [dailyDetails, setDailyDetails] = useState({ totalAmount: 0, count: 0, patients: [], dailyStart: null });
   const [pharmacyRevenue, setPharmacyRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
   const [pharmacyDailyDetails, setPharmacyDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
@@ -104,23 +94,58 @@ const Card = () => {
   const [showDailyModal, setShowDailyModal] = useState(false);
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
 
-  // Ensure pharmacy revenue is available early (pre-populate on mount)
+  // Prefetch all counts on mount to avoid hardcoded values
   useEffect(() => {
-    (async () => {
+    const prefetchStats = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/v1/sale/sales/revenue`, { headers: getAuthHeaders() });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          console.error('Failed to prefetch pharmacy sales:', res.status, txt);
-          return;
+        // Patient Stats
+        const pRes = await fetch(`${API_URL}/api/v1/patients/stats`, { headers: getAuthHeaders() });
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          setIpdYearlyTotal(pData.ipdYearlyTotal || 0);
+          setOpdYearlyTotal(pData.opdYearlyTotal || 0);
         }
-        const data = await res.json();
-        if (data.revenue) setPharmacyRevenue({ daily: data.revenue.daily || 0, monthly: data.revenue.monthly || 0, yearly: data.revenue.yearly || 0, total: data.revenue.total || 0 });
-        if (data.dailyDetails) setPharmacyDailyDetails({ totalAmount: data.dailyDetails.totalAmount || 0, count: data.dailyDetails.count || 0, items: data.dailyDetails.items || [] });
+
+        // Cash Bills
+        const cRes = await fetch(`${API_URL}/api/v1/cashbills/revenue/stats`, { headers: getAuthHeaders() });
+        if (cRes.ok) {
+          const cData = await cRes.json();
+          setCashYearlyTotal(cData.revenue?.yearlyCount || 0);
+        }
+
+        // Medical Bills
+        const mRes = await fetch(`${API_URL}/api/v1/medicalbills/revenue/stats`, { headers: getAuthHeaders() });
+        if (mRes.ok) {
+          const mData = await mRes.json();
+          setMedicalYearlyTotal(mData.revenue?.yearlyCount || 0);
+        }
+
+        // Lab Bills
+        const lRes = await fetch(`${API_URL}/api/v1/labbills/revenue/stats`, { headers: getAuthHeaders() });
+        if (lRes.ok) {
+          const lData = await lRes.json();
+          setLabYearlyTotal(lData.revenue?.yearlyCount || 0);
+        }
+
+        // Medicine Inventory Count
+        const medRes = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
+        if (medRes.ok) {
+          const meds = await medRes.json();
+          setMedicineCount(meds?.length || 0);
+        }
+
+        // Pharmacy Sales Prefetch (for Medicine Inventory selected view)
+        const sRes = await fetch(`${API_URL}/api/v1/sale/sales/revenue`, { headers: getAuthHeaders() });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          if (sData.revenue) setPharmacyRevenue({ daily: sData.revenue.daily || 0, monthly: sData.revenue.monthly || 0, yearly: sData.revenue.yearly || 0, total: sData.revenue.total || 0 });
+          if (sData.dailyDetails) setPharmacyDailyDetails({ totalAmount: sData.dailyDetails.totalAmount || 0, count: sData.dailyDetails.count || 0, items: sData.dailyDetails.items || [] });
+        }
       } catch (err) {
-        console.error('Error prefetching pharmacy sales', err);
+        console.error("Error prefetching dashboard stats", err);
       }
-    })();
+    };
+    prefetchStats();
   }, [API_URL]);
 
   const formatCurrency = (value) => {
@@ -247,113 +272,119 @@ const Card = () => {
   };
 
   return (
-    <div className="flex flex-col p-8 gap-6">
+    <div className="flex flex-col p-4 sm:p-6 lg:p-8 gap-8 bg-gray-50 min-h-screen">
       {/* Row of Cards */}
-      <div className="flex flex-wrap gap-4 justify-center">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 xl:gap-5 justify-items-center max-w-7xl mx-auto w-full">
         {cards.map((card) => (
           <div
             key={card.id}
-            className={`flex flex-col items-center bg-white border rounded-lg shadow-md text-black relative overflow-hidden cursor-pointer ${card.sizeClass} hover:scale-105 active:scale-95 transition-all duration-150`}
-            style={{ borderColor: card.borderColor }}
+            className={`flex flex-col items-center bg-white rounded-2xl shadow-lg hover:shadow-2xl text-white relative overflow-hidden cursor-pointer w-full max-w-[160px] hover:-translate-y-2 transition-all duration-300 group btn-tactile`}
             onClick={() => handleInputChange(card)}
           >
-            {/* colored header */}
-            <div className="absolute top-0 left-0 right-0 h-20" style={{ backgroundColor: card.bgColor }}></div>
+            {/* Gradient background layer */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-90 group-hover:opacity-100 transition-opacity duration-300`}></div>
 
-            {/* content - push down to avoid overlap with header */}
-            <div className="w-full pt-20 pb-4 px-3 flex flex-col items-center z-10">
-              <div className="flex items-center w-full justify-between">
-                <div className="flex items-center space-x-3">
-                  {getIcon(card.title)}
-                  <h1 className="text-xl font-bold text-white">
-                    {card.title === "IPD Detail" ? ipdYearlyTotal : card.title === "OPD Detail" ? opdYearlyTotal : card.count}
-                  </h1>
-                </div>
+            {/* Glassmorphism accent */}
+            <div className="absolute -top-10 -right-10 w-24 h-24 bg-white opacity-10 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+
+            {/* Content */}
+            <div className="w-full py-5 px-2 flex flex-col items-center z-10 text-center relative">
+              <div className="mb-2 p-2 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                {getIcon(card.title)}
               </div>
-              <h3 className="text-sm mt-3 z-10 text-gray-800 text-center w-full">{card.title}</h3>
-              <Link to={card.link} className="text-sm mt-2 text-blue-500 cursor-pointer">View details</Link>
+
+              <div className="text-xl font-black mb-1 drop-shadow-md">
+                {card.title === "IPD Detail" ? ipdYearlyTotal :
+                  card.title === "OPD Detail" ? opdYearlyTotal :
+                    card.title === "Hospital Cash Bill" ? cashYearlyTotal :
+                      card.title === "Pharmacy Bill" ? medicalYearlyTotal :
+                        card.title === "LAB Bill" ? labYearlyTotal :
+                          card.title === "Medicine Inventory" ? medicineCount :
+                            card.count}
+              </div>
+
+              <h3 className="text-[11px] font-extrabold uppercase tracking-tight opacity-95 mb-2 h-8 flex items-center">{card.title}</h3>
+
+              <Link
+                to={card.link}
+                className="text-[9px] font-black bg-white/20 hover:bg-white/40 backdrop-blur-md px-3 py-1 rounded-full transition-all border border-white/30 uppercase tracking-widest"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Enter
+              </Link>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Selected Card */}
-      <div className="w-full flex justify-center mt-6">
+      {/* Selected Card Revenue Summary */}
+      <div className="w-full mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {selectedCard && selectedCard.title !== "Discharge Form" && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl px-4">
-            {['Daily', 'Monthly', 'Yearly'].map((label) => {
-              const isIpd = selectedCard.title === 'IPD Detail';
-              const isOpd = selectedCard.title === 'OPD Detail';
-              // choose correct revenue source depending on selected card
-              const revenueSource = isIpd
-                ? ipdRevenue
-                : isOpd
-                  ? opdRevenue
-                  : selectedCard.title === 'Hospital Cash Bill'
-                    ? cashRevenue
-                    : selectedCard.title === 'LAB Bill'
-                      ? labRevenue
-                      : selectedCard.title === 'Pharmacy Bill'
-                        ? medicalRevenue
-                        : pharmacyRevenue;
-
-              const amount = label === 'Daily' ? revenueSource.daily : label === 'Monthly' ? revenueSource.monthly : revenueSource.yearly;
-
-              // choose correct count / daily details depending on selected card
-              let count = 0;
-              if (isIpd) {
-                count = label === 'Daily' ? ipdCounts.daily : label === 'Monthly' ? ipdCounts.monthly : ipdCounts.yearly;
-              } else if (isOpd) {
-                count = label === 'Daily' ? opdCounts.daily : label === 'Monthly' ? opdCounts.monthly : opdCounts.yearly;
-              } else if (selectedCard.title === 'Pharmacy Bill') {
-                count = label === 'Daily' ? (medicalDailyDetails.count || 0) : (label === 'Monthly' ? medicalRevenue.monthlyCount : medicalRevenue.yearlyCount);
-              } else if (selectedCard.title === 'Medicine Inventory') {
-                count = label === 'Daily' ? (pharmacyDailyDetails.count || 0) : (label === 'Monthly' ? pharmacyRevenue.monthlyCount : pharmacyRevenue.yearlyCount);
-              } else if (selectedCard.title === 'Hospital Cash Bill') {
-                count = label === 'Daily' ? (cashDailyDetails.count || 0) : (label === 'Monthly' ? cashRevenue.monthlyCount : cashRevenue.yearlyCount);
-              } else if (selectedCard.title === 'LAB Bill') {
-                count = label === 'Daily' ? (labDailyDetails.count || 0) : (label === 'Monthly' ? labRevenue.monthlyCount : labRevenue.yearlyCount);
-              }
-              // determine subtitle text depending on selected card
-              let subText = '';
-              if (selectedCard.title === 'Medicine Inventory') {
-                subText = `Stock: ${medicineStats.totalStock || 0} (Low: ${medicineStats.lowStockCount || 0})`;
-              } else if (selectedCard.title === 'Pharmacy Bill') {
-                subText = label === 'Daily' ? `Bills: ${medicalDailyDetails.count || 0}` : `Bills: -`;
-              } else if (isIpd || isOpd) {
-                subText = `Patients: ${count}`;
-              } else if (selectedCard.title === 'Hospital Cash Bill') {
-                subText = `Bills: ${count}`;
-              } else if (selectedCard.title === 'LAB Bill') {
-                subText = `Tests: ${count}`;
-              }
-              return (
-                <div
-                  key={label}
-                  className={`bg-white rounded-lg shadow hover:shadow-lg transition-all duration-150 cursor-pointer overflow-hidden border-b-4 btn-tactile ${label === 'Daily' ? 'border-blue-500 active:scale-95' :
-                    label === 'Monthly' ? 'border-emerald-500 active:scale-95' :
-                      'border-purple-500 active:scale-95'
-                    }`}
-                  onClick={() => {
-                    if (label !== 'Daily') return;
-                    // Open daily modal only when there's data for the selected card
-                    if ((isIpd || isOpd) && dailyDetails && dailyDetails.patients && dailyDetails.patients.length) setShowDailyModal(true);
-                    else if (selectedCard.title === 'Pharmacy Bill' && medicalDailyDetails && medicalDailyDetails.items && medicalDailyDetails.items.length) setShowDailyModal(true);
-                    else if (selectedCard.title === 'Medicine Inventory' && ((medicineStats && medicineStats.lowStockItems && medicineStats.lowStockItems.length) || (pharmacyDailyDetails && pharmacyDailyDetails.items && pharmacyDailyDetails.items.length))) setShowDailyModal(true);
-                    else if (selectedCard.title === 'Hospital Cash Bill' && cashDailyDetails && cashDailyDetails.items && cashDailyDetails.items.length) setShowDailyModal(true);
-                    else if (selectedCard.title === 'LAB Bill' && labDailyDetails && labDailyDetails.items && labDailyDetails.items.length) setShowDailyModal(true);
-                  }}
-                >
-                  <div className="flex flex-col items-center justify-center p-4">
-                    <p className={`text-xl font-bold ${label === 'Daily' ? 'text-blue-600' : label === 'Monthly' ? 'text-emerald-600' : 'text-purple-600'}`}>{formatCurrency(amount)}</p>
-                    <div className="text-gray-500 text-sm mt-1">{subText}</div>
-                  </div>
-                  <div className={`text-center py-2 text-white text-xs font-semibold ${label === 'Daily' ? 'bg-blue-500' : label === 'Monthly' ? 'bg-emerald-500' : 'bg-purple-500'}`}>
-                    {label.toUpperCase()}
+          <div className="max-w-5xl mx-auto w-full px-4">
+            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+              <div className={`p-4 bg-gradient-to-r ${selectedCard.gradient} text-white flex justify-between items-center`}>
+                <div className="flex items-center space-x-3">
+                  {getIcon(selectedCard.title)}
+                  <div>
+                    <h2 className="text-lg font-bold">Revenue & Analytics</h2>
+                    <p className="text-xs opacity-80 uppercase tracking-wider">{selectedCard.title} Overview</p>
                   </div>
                 </div>
-              );
-            })}
+                <div className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">
+                  LIVE STATS
+                </div>
+              </div>
+
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {['Daily', 'Monthly', 'Yearly'].map((label) => {
+                  const isIpd = selectedCard.title === 'IPD Detail';
+                  const isOpd = selectedCard.title === 'OPD Detail';
+                  const revenueSource = isIpd ? ipdRevenue : isOpd ? opdRevenue : selectedCard.title === 'Hospital Cash Bill' ? cashRevenue : selectedCard.title === 'LAB Bill' ? labRevenue : selectedCard.title === 'Pharmacy Bill' ? medicalRevenue : pharmacyRevenue;
+                  const amount = label === 'Daily' ? revenueSource.daily : label === 'Monthly' ? revenueSource.monthly : revenueSource.yearly;
+
+                  let count = 0;
+                  if (isIpd) count = label === 'Daily' ? ipdCounts.daily : label === 'Monthly' ? ipdCounts.monthly : ipdCounts.yearly;
+                  else if (isOpd) count = label === 'Daily' ? opdCounts.daily : label === 'Monthly' ? opdCounts.monthly : opdCounts.yearly;
+                  else if (selectedCard.title === 'Pharmacy Bill') count = label === 'Daily' ? (medicalDailyDetails.count || 0) : (label === 'Monthly' ? medicalRevenue.monthlyCount : medicalRevenue.yearlyCount);
+                  else if (selectedCard.title === 'Medicine Inventory') count = label === 'Daily' ? (pharmacyDailyDetails.count || 0) : (label === 'Monthly' ? pharmacyRevenue.monthlyCount : pharmacyRevenue.yearlyCount);
+                  else if (selectedCard.title === 'Hospital Cash Bill') count = label === 'Daily' ? (cashDailyDetails.count || 0) : (label === 'Monthly' ? cashRevenue.monthlyCount : cashRevenue.yearlyCount);
+                  else if (selectedCard.title === 'LAB Bill') count = label === 'Daily' ? (labDailyDetails.count || 0) : (label === 'Monthly' ? labRevenue.monthlyCount : labRevenue.yearlyCount);
+
+                  let subText = '';
+                  if (selectedCard.title === 'Medicine Inventory') subText = `Stock: ${medicineStats.totalStock || 0}`;
+                  else if (selectedCard.title === 'Pharmacy Bill') subText = `Bills: ${count}`;
+                  else if (isIpd || isOpd) subText = `Patients: ${count}`;
+                  else subText = `Count: ${count}`;
+
+                  const colorClass = label === 'Daily' ? 'from-blue-50 to-blue-100 text-blue-700 border-blue-200' : label === 'Monthly' ? 'from-emerald-50 to-emerald-100 text-emerald-700 border-emerald-200' : 'from-purple-50 to-purple-100 text-purple-700 border-purple-200';
+
+                  return (
+                    <div
+                      key={label}
+                      className={`relative group h-32 rounded-2xl border-2 p-5 flex flex-col justify-between transition-all duration-300 hover:scale-105 btn-tactile overflow-hidden bg-gradient-to-br ${colorClass}`}
+                      onClick={() => {
+                        if (label !== 'Daily') return;
+                        if ((isIpd || isOpd) && dailyDetails?.patients?.length) setShowDailyModal(true);
+                        else if (selectedCard.title === 'Pharmacy Bill' && medicalDailyDetails?.items?.length) setShowDailyModal(true);
+                        else if (selectedCard.title === 'Medicine Inventory' && (medicineStats?.lowStockItems?.length || pharmacyDailyDetails?.items?.length)) setShowDailyModal(true);
+                        else if (selectedCard.title === 'Hospital Cash Bill' && cashDailyDetails?.items?.length) setShowDailyModal(true);
+                        else if (selectedCard.title === 'LAB Bill' && labDailyDetails?.items?.length) setShowDailyModal(true);
+                      }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="text-xs font-black uppercase tracking-widest opacity-60">{label}</span>
+                        {label === 'Daily' && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>}
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black tracking-tight">{formatCurrency(amount)}</div>
+                        <div className="text-[10px] font-bold uppercase opacity-70 mt-1">{subText}</div>
+                      </div>
+                      {label === 'Daily' && <div className="absolute top-1 right-1 text-[8px] font-bold text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase px-2 py-1">Click for Details</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
