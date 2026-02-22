@@ -8,6 +8,8 @@ export default function MedicineInventory() {
   const [medicines, setMedicines] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const isAdmin = localStorage.getItem('userType') === 'admin';
 
   useEffect(() => {
@@ -52,6 +54,10 @@ export default function MedicineInventory() {
     (medicine.code || medicine.uniqueCode || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPages = Math.max(1, Math.ceil(filteredMedicines.length / pageSize));
+  const start = (currentPage - 1) * pageSize;
+  const currentData = filteredMedicines.slice(start, start + pageSize);
+
   return (
     <div>
       <Header />
@@ -85,6 +91,19 @@ export default function MedicineInventory() {
         </div>
 
         <div className="overflow-x-auto">
+          <div className="flex justify-end p-2 items-center gap-3 no-print">
+            <label className="text-sm text-gray-600 font-medium">Rows:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              {[10, 15, 20, 50].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
           <table className="min-w-full bg-white border rounded-lg">
             <thead className="bg-gray-50">
               <tr>
@@ -99,13 +118,18 @@ export default function MedicineInventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredMedicines.map((medicine) => (
-                <tr key={medicine.uniqueCode}>
+              {currentData.length === 0 && (
+                <tr>
+                  <td colSpan={isAdmin ? 8 : 7} className="px-6 py-4 text-center text-gray-500">No medicines found</td>
+                </tr>
+              )}
+              {currentData.map((medicine) => (
+                <tr key={medicine.uniqueCode || medicine._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">{medicine.code}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{medicine.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{medicine.name}</td>
                   <td
-                    className={`px-6 py-4 whitespace-nowrap ${medicine.stock <= 10 ? 'bg-yellow-100' : ''}`}
-                    title={medicine.stock <= 10 ? "Inventory stock is low" : ""}
+                    className={`px-6 py-4 whitespace-nowrap ${Number(medicine.stock) <= 10 ? 'bg-yellow-100 text-yellow-800' : ''}`}
+                    title={Number(medicine.stock) <= 10 ? "Inventory stock is low" : ""}
                   >
                     {medicine.stock}
                   </td>
@@ -117,13 +141,13 @@ export default function MedicineInventory() {
                     <td className="px-6 py-4 whitespace-nowrap space-x-3">
                       <button
                         onClick={() => handleEdit(medicine._id)}
-                        className="bg-amber-500 text-white px-3 py-1 rounded btn-tactile hover:bg-amber-600 font-medium shadow-sm"
+                        className="bg-amber-500 text-white px-3 py-1 rounded btn-tactile hover:bg-amber-600 font-medium shadow-sm transition-all"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(medicine._id)}
-                        className="bg-rose-600 text-white px-3 py-1 rounded btn-tactile hover:bg-rose-700 font-medium shadow-sm"
+                        className="bg-rose-600 text-white px-3 py-1 rounded btn-tactile hover:bg-rose-700 font-medium shadow-sm transition-all"
                       >
                         Delete
                       </button>
@@ -133,6 +157,45 @@ export default function MedicineInventory() {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          {filteredMedicines.length > 0 && (
+            <div className="p-4 flex items-center justify-between border-t border-gray-200 no-print">
+              <div className="text-sm text-gray-600 font-medium">
+                Showing {start + 1} to {Math.min(start + pageSize, filteredMedicines.length)} of {filteredMedicines.length} entries
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded border bg-white disabled:opacity-50 btn-tactile hover:bg-gray-50 transition-all font-medium text-sm"
+                >
+                  Prev
+                </button>
+
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`px-3 py-1 rounded border transition-all text-sm font-semibold ${p === currentPage ? "bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-white hover:bg-gray-50 text-gray-700"}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded border bg-white disabled:opacity-50 btn-tactile hover:bg-gray-50 transition-all font-medium text-sm"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="mt-6 flex items-center space-x-3">
           <button

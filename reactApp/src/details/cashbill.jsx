@@ -18,8 +18,14 @@ const Cashbill = () => {
     'Consultation', 'Doctor Visit', 'Day care nursing', 'procedure done', 'Bed Charge',
   ];
 
-  const initialServices = fixedServices.map((service, index) => ({
-    no: index + 1, service, price: '', quantity: '', total: ''
+  const initialServices = Array.from({ length: 10 }).map((_, index) => ({
+    no: index + 1,
+    service: fixedServices[index] || '',
+    price: '',
+    quantity: '',
+    cgst: 0,
+    sgst: 0,
+    total: ''
   }));
 
   const formatDate = (date) => {
@@ -222,7 +228,7 @@ const Cashbill = () => {
         ipdNumber: data.ipdNumber,
         admissionDate: toISODate(data.admissionDate),
         dischargeDate: toISODate(data.dischargeDate),
-        services: data.services.map(s => ({
+        services: data.services.filter(s => s.service && s.service.trim() !== '').map(s => ({
           service: s.service,
           price: Number(s.price) || 0,
           quantity: Number(s.quantity) || 0,

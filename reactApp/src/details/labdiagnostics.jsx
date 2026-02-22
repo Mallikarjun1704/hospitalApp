@@ -15,9 +15,7 @@ const Labdiagonstics = () => {
     place: 'Koppal',
     ipdNumber: '',
     dischargeDate: new Date().toLocaleDateString(),
-    services: [
-      { no: 1, service: 'Consultation', price: 150, quantity: 1, cgst: 0, sgst: 0, total: 150 },
-    ],
+    services: Array.from({ length: 10 }).map((_, i) => ({ no: i + 1, service: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '', testCode: '', testName: '' })),
     total: '',
     totalCgst: 0,
     totalSgst: 0,
@@ -157,7 +155,7 @@ const Labdiagonstics = () => {
         ipdNumber: data.ipdNumber,
         admissionDate: data.admissionDate,
         dischargeDate: data.dischargeDate,
-        services: data.services.map(s => ({
+        services: data.services.filter(s => (s.service && s.service.trim() !== '') || (s.testCode && s.testCode.trim() !== '')).map(s => ({
           testId: s.testId,
           service: s.service,
           testCode: s.testCode || '',

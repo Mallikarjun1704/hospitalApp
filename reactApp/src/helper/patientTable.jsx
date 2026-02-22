@@ -24,7 +24,7 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
       return String(val);
     }
   };
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
@@ -35,7 +35,20 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
   }, [pageSize, totalPages]); // eslint-disable-line
 
   const start = (currentPage - 1) * pageSize;
-  const currentData = data.slice(start, start + pageSize);
+  const slicedData = data.slice(start, start + pageSize);
+
+  // Ensure minimum 10 rows or pageSize rows are shown
+  const currentData = [...slicedData];
+  const minRows = Math.max(10, pageSize);
+  while (currentData.length < minRows && currentData.length < data.length - start + (minRows - slicedData.length)) {
+    // Actually, if we are on the last page and have fewer than minRows, we pad.
+    if (currentData.length >= minRows) break;
+    currentData.push({ _id: `empty-${currentData.length}`, isEmpty: true });
+  }
+  // Simplified padding logic: always pad to at least 10 rows if on last page
+  while (currentData.length < 10) {
+    currentData.push({ _id: `placeholder-${currentData.length}`, isEmpty: true });
+  }
 
   const gotoPage = (p) => setCurrentPage(Math.max(1, Math.min(totalPages, p)));
 
@@ -76,36 +89,38 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {currentData.map((r) => (
-                <tr key={r._id || r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm text-gray-700">{r.name || r.patientName}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">{r.age}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">{r.contact || r.contactNumber}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">{r.ipdNumber}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">{r.date ? formatIsoDate(r.date) : formatIsoDate(r.admissionDate)}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">{r.consultDoctor || r.consultantName}</td>
+                <tr key={r._id || r.id} className={`hover:bg-gray-50 ${r.isEmpty ? 'h-10' : ''}`}>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.name || r.patientName)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && r.age}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.contact || r.contactNumber)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && r.ipdNumber}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.date ? formatIsoDate(r.date) : formatIsoDate(r.admissionDate))}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.consultDoctor || r.consultantName)}</td>
                   {(isAdmin || onView) && (
                     <td className="px-4 py-2 text-sm text-gray-700">
-                      <div className="flex gap-2">
-                        {onEdit && isAdmin && (
-                          <button
-                            onClick={() => onEdit(r)}
-                            className="bg-amber-500 text-white px-3 py-1 rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium"
-                          >
-                            Edit
-                          </button>
-                        )}
-                        {isAdmin && onDelete && (
-                          <button
-                            onClick={() => onDelete(r._id || r.id)}
-                            className="bg-rose-600 text-white px-3 py-1 rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium"
-                          >
-                            Delete
-                          </button>
-                        )}
-                        {onView && (
-                          <button onClick={() => onView(r)} className="bg-blue-500 text-white px-3 py-1 rounded btn-tactile hover:bg-blue-600 shadow-sm font-medium">View</button>
-                        )}
-                      </div>
+                      {!r.isEmpty && (
+                        <div className="flex gap-2">
+                          {onEdit && isAdmin && (
+                            <button
+                              onClick={() => onEdit(r)}
+                              className="bg-amber-500 text-white px-3 py-1 rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {isAdmin && onDelete && (
+                            <button
+                              onClick={() => onDelete(r._id || r.id)}
+                              className="bg-rose-600 text-white px-3 py-1 rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium"
+                            >
+                              Delete
+                            </button>
+                          )}
+                          {onView && (
+                            <button onClick={() => onView(r)} className="bg-blue-500 text-white px-3 py-1 rounded btn-tactile hover:bg-blue-600 shadow-sm font-medium">View</button>
+                          )}
+                        </div>
+                      )}
                     </td>
                   )}
                 </tr>

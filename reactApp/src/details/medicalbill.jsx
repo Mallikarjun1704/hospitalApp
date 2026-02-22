@@ -15,9 +15,7 @@ const Medical = () => {
     place: 'Koppal',
     ipdNumber: '',
     dischargeDate: new Date().toLocaleDateString(),
-    services: [
-      { no: 1, service: 'Consultation', price: 150, quantity: 1, cgst: 0, sgst: 0, total: 150 },
-    ],
+    services: Array.from({ length: 10 }).map((_, i) => ({ no: i + 1, service: '', uniqueCode: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '' })),
     total: '',
     totalCgst: 0,
     totalSgst: 0,
@@ -215,11 +213,10 @@ const Medical = () => {
         ipdNumber: data.ipdNumber,
         admissionDate: data.admissionDate,
         dischargeDate: data.dischargeDate,
-        services: data.services.map(s => ({
+        services: data.services.filter(s => (s.service && s.service.trim() !== '') || (s.uniqueCode && s.uniqueCode.trim() !== '')).map(s => ({
           medicineId: s.medicineId,
-          service: s.service,
           uniqueCode: s.uniqueCode || '',
-          name: s.name || '',
+          name: s.service || s.name || '',
           price: Number(s.price) || 0,
           quantity: Number(s.quantity) || 0,
           cgst: Number(s.cgst) || 0,
