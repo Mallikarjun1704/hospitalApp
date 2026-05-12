@@ -1,9 +1,32 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const { fork } = require('child_process');
+
+// Path to the backend entry point
+const isDev = !app.isPackaged;
+const backendPath = isDev
+  ? path.join(__dirname, '..', 'nodeApp', 'index.js')
+  : path.join(process.resourcesPath, 'nodeApp', 'index.js');
+let backendProcess;
+
+function startBackend() {
+  if (backendProcess) return;
+  
+  console.log('Starting backend server...');
+  backendProcess = fork(backendPath, [], {
+    cwd: path.dirname(backendPath),
+    env: { ...process.env, PORT: 8889 }
+  });
+
+  backendProcess.on('error', (err) => {
+    console.error('Failed to start backend:', err);
+  });
+}
 
 let mainWindow;
 
 function createWindow() {
+  startBackend();
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -36,6 +59,9 @@ function createWindow() {
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
+  if (backendProcess) {
+    backendProcess.kill();
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }

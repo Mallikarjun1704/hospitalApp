@@ -8,9 +8,9 @@
     "start:backend": "cd nodeApp && npm start",
     "start:frontend": "cd reactApp && npm start",
     "start": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"cyan,magenta\" \"npm run start:backend\" \"npm run start:frontend\"",
-    "electron:dev": "concurrently --names \"BACKEND,FRONTEND,ELECTRON\" --prefix-colors \"cyan,magenta,yellow\" \"npm run start:backend\" \"cd reactApp && cross-env BROWSER=none react-scripts start\" \"wait-on http://localhost:3000 && cd reactApp && cross-env ELECTRON_START_URL=http://localhost:3000 electron .\"",
+    "electron:dev": "concurrently --names \"FRONTEND,ELECTRON\" --prefix-colors \"magenta,yellow\" \"cd reactApp && cross-env BROWSER=none react-scripts start\" \"wait-on http://localhost:3000 && cd reactApp && cross-env ELECTRON_START_URL=http://localhost:3000 npm run electron:dev\"",
     "build:frontend": "cd reactApp && npm run build",
-    "electron:build": "npm run build:frontend && cd reactApp && electron-builder"
+    "electron:build": "npm run build:frontend && cd reactApp && npm run electron:build"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
