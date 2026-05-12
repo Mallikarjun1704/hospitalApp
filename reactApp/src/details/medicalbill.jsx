@@ -15,7 +15,7 @@ const Medical = () => {
     place: 'Koppal',
     ipdNumber: '',
     dischargeDate: new Date().toLocaleDateString(),
-    services: Array.from({ length: 10 }).map((_, i) => ({ no: i + 1, service: '', uniqueCode: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '' })),
+    services: [{ no: 1, service: '', uniqueCode: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '' }],
     total: '',
     totalCgst: 0,
     totalSgst: 0,
@@ -52,13 +52,50 @@ const Medical = () => {
     fetchMeds();
   }, []);
 
+  const loadBill = React.useCallback(async (id) => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills/${id}`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const bill = await res.json();
+      const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
+      let patient = null;
+      if (patientResp && patientResp.ok) patient = await patientResp.json();
+
+      setData({
+        name: bill.name || '',
+        contact: bill.contact || '',
+        age: bill.age || (patient && patient.age) || '',
+        admissionDate: bill.admissionDate ? new Date(bill.admissionDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        place: bill.place || 'Koppal',
+        ipdNumber: bill.ipdNumber || '',
+        dischargeDate: bill.dischargeDate ? new Date(bill.dischargeDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
+          no: i + 1,
+          service: s.medicineId || s.service || '',
+          medicineId: s.medicineId || undefined,
+          price: s.price || '',
+          quantity: s.quantity || '',
+          cgst: s.cgst || s.gst || 0,
+          sgst: s.sgst || 0,
+          total: s.total || '',
+          uniqueCode: s.uniqueCode || '',
+          name: s.name || ''
+        })) : [{ no: 1, service: '', uniqueCode: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '' }],
+        total: bill.total || 0,
+        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
+        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
+        advancePayment: bill.advancePayment || 0,
+        netPayable: bill.netPayable || 0,
+      });
+    } catch (err) { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     // load for editing if editId present
-    if (location && location.state && location.state.editId) {
+    if (location?.state?.editId) {
       loadBill(location.state.editId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location && location.state]);
+  }, [location, loadBill]);
 
   // when contact changes, try to auto-fill patient details (debounced)
   useEffect(() => {
@@ -104,9 +141,14 @@ const Medical = () => {
       updatedServices[index].total = (price * quantity) + cgst + sgst || 0;
     }
 
-    // if uniqueCode manually entered, try to resolve medicine
+    // if uniqueCode/search input changed, try to resolve medicine
     if (field === 'uniqueCode' && value) {
-      const med = medicines.find(m => m.code === value || `${m.code} - ${m.name}` === value || m.name === value);
+      // search in medicines list by code, combined code-name, or name
+      const med = medicines.find(m => 
+        m.code === value || 
+        `${m.code} - ${m.name}` === value || 
+        m.name === value
+      );
       if (med) {
         updatedServices[index].medicineId = med._id;
         updatedServices[index].name = med.name || '';
@@ -166,53 +208,24 @@ const Medical = () => {
     }
   }
 
-  const loadBill = async (id) => {
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills/${id}`, { headers: getAuthHeaders() });
-      if (!res.ok) return;
-      const bill = await res.json();
-      const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
-      let patient = null;
-      if (patientResp && patientResp.ok) patient = await patientResp.json();
-
-      setData({
-        name: bill.name || '',
-        contact: bill.contact || '',
-        age: bill.age || (patient && patient.age) || '',
-        admissionDate: bill.admissionDate ? new Date(bill.admissionDate).toLocaleDateString() : new Date().toLocaleDateString(),
-        place: bill.place || 'Koppal',
-        ipdNumber: bill.ipdNumber || '',
-        dischargeDate: bill.dischargeDate ? new Date(bill.dischargeDate).toLocaleDateString() : new Date().toLocaleDateString(),
-        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
-          no: i + 1,
-          service: s.medicineId || s.service || '',
-          medicineId: s.medicineId || undefined,
-          price: s.price || '',
-          quantity: s.quantity || '',
-          cgst: s.cgst || s.gst || 0,
-          sgst: s.sgst || 0,
-          total: s.total || '',
-          uniqueCode: s.uniqueCode || '',
-          name: s.name || ''
-        })) : data.services,
-        total: bill.total || 0,
-        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
-        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
-        advancePayment: bill.advancePayment || 0,
-        netPayable: bill.netPayable || 0,
-      });
-    } catch (err) { /* ignore */ }
-  };
 
   const saveBill = async () => {
     try {
       if (!data.contact || !data.name) return alert('Name and contact are required');
+      const toISODate = (val) => {
+        if (!val) return undefined;
+        if (String(val).match(/^\d{4}-\d{2}-\d{2}$/)) return val;
+        const m = String(val).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+        return val;
+      };
+
       const payload = {
         contact: data.contact,
         name: data.name,
         ipdNumber: data.ipdNumber,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: toISODate(data.admissionDate),
+        dischargeDate: toISODate(data.dischargeDate),
         services: data.services.filter(s => (s.service && s.service.trim() !== '') || (s.uniqueCode && s.uniqueCode.trim() !== '')).map(s => ({
           medicineId: s.medicineId,
           uniqueCode: s.uniqueCode || '',
@@ -249,34 +262,7 @@ const Medical = () => {
 
   // addByCode removed: selection now via per-row code input with datalist
 
-  const handleSelectByCode = (index, val) => {
-    const updatedServices = [...data.services];
-    updatedServices[index].uniqueCode = val;
-    // try to resolve med by code or by name
-    const med = medicines.find(m => m.code === val || m.name === val || `${m.code} - ${m.name}` === val);
-    if (med) {
-      updatedServices[index].medicineId = med._id;
-      updatedServices[index].name = med.name || '';
-      updatedServices[index].price = med.salePrice || med.purchasePrice || 0;
-      updatedServices[index].quantity = updatedServices[index].quantity || 1;
-      updatedServices[index].cgst = updatedServices[index].cgst || 0;
-      updatedServices[index].sgst = updatedServices[index].sgst || 0;
-      updatedServices[index].total = (Number(updatedServices[index].price) || 0) * (Number(updatedServices[index].quantity) || 1) + (Number(updatedServices[index].cgst) || 0) + (Number(updatedServices[index].sgst) || 0);
-      updatedServices[index].service = med._id;
-    }
 
-    const updatedTotal = updatedServices.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0);
-    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (Number(item.sgst) || 0), 0);
-    setData({
-      ...data,
-      services: updatedServices,
-      total: updatedTotal,
-      totalCgst: updatedTotalCgst,
-      totalSgst: updatedTotalSgst,
-      netPayable: updatedTotal
-    });
-  };
 
 
   const generatePDF = async () => {
@@ -377,8 +363,7 @@ const Medical = () => {
 
   const navigate = useNavigate();
   const handleGoBack = (event) => {
-    // Prevent navigation
-    navigate(-1); // Go to previous page
+    navigate('/details/medical-bill/table');
   };
 
   return (
@@ -443,7 +428,7 @@ const Medical = () => {
                       list="med-list"
                       placeholder="Type code or name"
                       value={service.uniqueCode || ''}
-                      onChange={(e) => handleSelectByCode(index, e.target.value)}
+                      onChange={(e) => handleServiceChange(index, 'uniqueCode', e.target.value)}
                       className="w-full p-1 border-gray-300 rounded"
                     />
                   </td>

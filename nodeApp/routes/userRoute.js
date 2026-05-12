@@ -14,14 +14,14 @@ router.get('/getUserAllUsers', async (req, res) => {
 
 //get User by Id
 router.get('/getUser/:id', async (req, res) => {
-  
+
   try {
     //uncomment the below lines to enable authentication check
     /*if (req.user._id !== req.params.id) {
       return res.status(403).json({ error: 'Access denied' });
     }*/
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

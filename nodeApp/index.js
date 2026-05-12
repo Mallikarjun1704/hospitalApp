@@ -25,9 +25,9 @@ app.use(express.json());
 
 // Enable CORS for the React frontend (default origin http://localhost:3000)
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
-app.use(cors({ origin: corsOrigin, credentials: true, methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
+app.use(cors({ origin: corsOrigin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 // Respond to preflight requests for all routes
-app.options('*', cors({ origin: corsOrigin, credentials: true, methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
+app.options('*', cors({ origin: corsOrigin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 
 // Public helper route to download a sample medicines CSV (authenticated users can also fetch this via API)
 app.get('/api/v1/medicine/medicines/sample-csv', (req, res) => {
@@ -42,29 +42,29 @@ mongoose.connect(process.env.MONGO_BD)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-  //Set-ExecutionPolicy RemoteSigned & Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-  // Middleware to authenticate token
-  const authenticateToken = (req, res, next) => {
-          const authHeader = req.headers['authorization'];
-          const token = authHeader && authHeader.split(' ')[1];
-          if (!token) return res.sendStatus(401);
+//Set-ExecutionPolicy RemoteSigned & Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+// Middleware to authenticate token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.sendStatus(401);
 
-          // reject immediately if the access token is revoked
-          if (tokenStore.hasRevokedAccessToken(token)) return res.sendStatus(401);
+  // reject immediately if the access token is revoked
+  if (tokenStore.hasRevokedAccessToken(token)) return res.sendStatus(401);
 
-          jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-            if (err) return res.sendStatus(403);
-            req.user = user;
-            next();
-          });
-    };
-    
-    
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
 
-    
+
+
+
 // Use routes
 app.use('/api/v1', loginRoutes);
-app.use('/api/v1', authenticateToken, userRoutes);
+app.use('/api/v1', userRoutes);
 app.use('/api/v1/medicine', authenticateToken, MedicineRoutes);
 //app.use('/api/v1/medicine', MedicineRoutes);
 app.use('/api/v1/sale', authenticateToken, SaleRoutes);
@@ -100,6 +100,4 @@ if (fs.existsSync(httpsKeyPath) && fs.existsSync(httpsCertPath)) {
   } catch (err) {
     console.error('Failed to start HTTPS server:', err);
   }
-} else {
-  console.log('HTTPS cert/key not found — HTTPS server not started. To enable HTTPS, place key/cert at ./certs/ or set HTTPS_KEY and HTTPS_CERT env vars.');
 }

@@ -59,11 +59,11 @@ const MedicalBillTable = () => {
     <div>
       <Header />
       <div className="p-4">
-        <h2 className="font-bold text-lg text-center">Medical Bills</h2>
+        <h2 className="font-bold text-lg text-center">Pharmacy Bills</h2>
         <div className="flex justify-between mt-4 mb-2">
           <div>
-            <button className="px-4 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 mr-2" onClick={() => navigate(-1)}>Back</button>
-            <button className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md" onClick={() => navigate('/details/medical-bill')}>Generate Medical Bill</button>
+            <button className="px-4 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 mr-2" onClick={() => navigate('/dashboard')}>Back</button>
+            <button className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md" onClick={() => navigate('/details/medical-bill')}>Generate Pharmacy Bill</button>
           </div>
           <div className="flex items-center space-x-2">
             <input placeholder="Filter by contact" value={contactFilter} onChange={(e) => setContactFilter(e.target.value)} className="p-2 border" />

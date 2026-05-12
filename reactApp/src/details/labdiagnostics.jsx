@@ -15,7 +15,7 @@ const Labdiagonstics = () => {
     place: 'Koppal',
     ipdNumber: '',
     dischargeDate: new Date().toLocaleDateString(),
-    services: Array.from({ length: 10 }).map((_, i) => ({ no: i + 1, service: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '', testCode: '', testName: '' })),
+    services: [{ no: 1, service: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '', testCode: '', testName: '' }],
     total: '',
     totalCgst: 0,
     totalSgst: 0,
@@ -43,12 +43,49 @@ const Labdiagonstics = () => {
     fetchTests();
   }, []);
 
+  const loadBill = React.useCallback(async (id) => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labbills/${id}`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const bill = await res.json();
+      const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
+      let patient = null;
+      if (patientResp && patientResp.ok) patient = await patientResp.json();
+
+      setData({
+        name: bill.name || '',
+        contact: bill.contact || '',
+        age: bill.age || (patient && patient.age) || '',
+        admissionDate: bill.admissionDate ? new Date(bill.admissionDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        place: bill.place || 'Koppal',
+        ipdNumber: bill.ipdNumber || '',
+        dischargeDate: bill.dischargeDate ? new Date(bill.dischargeDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
+          no: i + 1,
+          service: s.service || '',
+          testId: s.testId || undefined,
+          price: s.price || '',
+          quantity: s.quantity || '',
+          cgst: s.cgst || s.gst || 0,
+          sgst: s.sgst || 0,
+          total: s.total || '',
+          testCode: s.testCode || '',
+          testName: s.testName || ''
+        })) : [{ no: 1, service: '', price: '', quantity: '', cgst: 0, sgst: 0, total: '', testCode: '', testName: '' }],
+        total: bill.total || 0,
+        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
+        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
+        advancePayment: bill.advancePayment || 0,
+        netPayable: bill.netPayable || 0,
+      });
+    } catch (err) { }
+  }, []);
+
   useEffect(() => {
-    if (location && location.state && location.state.editId) {
+    if (location?.state?.editId) {
       loadBill(location.state.editId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location && location.state]);
+  }, [location, loadBill]);
 
   // when contact changes, try to auto-fill patient details (debounced)
   useEffect(() => {
@@ -108,53 +145,26 @@ const Labdiagonstics = () => {
     setData({ ...data, services: updatedServices, total: updatedTotal, totalCgst: updatedTotalCgst, totalSgst: updatedTotalSgst, netPayable: updatedTotal });
   };
 
-  const loadBill = async (id) => {
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labbills/${id}`, { headers: getAuthHeaders() });
-      if (!res.ok) return;
-      const bill = await res.json();
-      const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
-      let patient = null;
-      if (patientResp && patientResp.ok) patient = await patientResp.json();
-
-      setData({
-        name: bill.name || '',
-        contact: bill.contact || '',
-        age: bill.age || (patient && patient.age) || '',
-        admissionDate: bill.admissionDate ? new Date(bill.admissionDate).toLocaleDateString() : new Date().toLocaleDateString(),
-        place: bill.place || 'Koppal',
-        ipdNumber: bill.ipdNumber || '',
-        dischargeDate: bill.dischargeDate ? new Date(bill.dischargeDate).toLocaleDateString() : new Date().toLocaleDateString(),
-        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
-          no: i + 1,
-          service: s.service || '',
-          testId: s.testId || undefined,
-          price: s.price || '',
-          quantity: s.quantity || '',
-          cgst: s.cgst || s.gst || 0,
-          sgst: s.sgst || 0,
-          total: s.total || '',
-          testCode: s.testCode || '',
-          testName: s.testName || ''
-        })) : data.services,
-        total: bill.total || 0,
-        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
-        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
-        advancePayment: bill.advancePayment || 0,
-        netPayable: bill.netPayable || 0,
-      });
-    } catch (err) { }
-  };
 
   const saveBill = async () => {
     try {
       if (!data.contact || !data.name) return alert('Name and contact required');
+      const toISODate = (val) => {
+        if (!val) return undefined;
+        // if already ISO
+        if (String(val).match(/^\d{4}-\d{2}-\d{2}$/)) return val;
+        // convert DD/MM/YYYY to ISO YYYY-MM-DD
+        const m = String(val).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+        return val;
+      };
+
       const payload = {
         contact: data.contact,
         name: data.name,
         ipdNumber: data.ipdNumber,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: toISODate(data.admissionDate),
+        dischargeDate: toISODate(data.dischargeDate),
         services: data.services.filter(s => (s.service && s.service.trim() !== '') || (s.testCode && s.testCode.trim() !== '')).map(s => ({
           testId: s.testId,
           service: s.service,
@@ -321,8 +331,7 @@ const Labdiagonstics = () => {
 
   const navigate = useNavigate();
   const handleGoBack = (event) => {
-    // Prevent navigation
-    navigate(-1); // Go to previous page
+    navigate('/details/lab-bill/table');
   };
 
   const formatCurrency = (value) => {

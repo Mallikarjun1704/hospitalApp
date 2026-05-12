@@ -5,12 +5,30 @@ const multer = require('multer');
 const upload = multer();
 const { parse } = require('csv-parse/sync');
 
-// Add Medicine                                                                                    c                                                                                        
+// Add Medicine - handles duplicate codes by updating stock
 router.post("/medicines", async (req, res) => {
     try {
-        // require code and name
-        const { code, name } = req.body;
+        const { code, name, stock } = req.body;
         if (!code || !name) return res.status(400).json({ error: 'code and name are required' });
+
+        const existing = await Medicine.findOne({ code });
+        if (existing) {
+            console.log(`Updating existing medicine stock for code: ${code}`);
+            // Update existing medicine: increment stock and update other fields
+            const newStock = (parseInt(existing.stock) || 0) + (parseInt(stock) || 0);
+
+            // Strip _id if it exists in req.body to avoid Mongo update errors
+            const updateData = { ...req.body, stock: newStock };
+            delete updateData._id;
+
+            const updated = await Medicine.findByIdAndUpdate(
+                existing._id,
+                updateData,
+                { new: true }
+            );
+            return res.json(updated);
+        }
+
         const medicine = new Medicine(req.body);
         await medicine.save();
         res.status(201).json(medicine);

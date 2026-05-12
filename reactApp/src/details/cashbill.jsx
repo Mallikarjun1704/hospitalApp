@@ -6,31 +6,27 @@ import Header from '../common/header';
 import { getAuthHeaders } from '../utils/api';
 import { useNavigate, useLocation } from "react-router-dom";
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
+
+
+const initialServices = [{
+  no: 1,
+  service: '',
+  price: '',
+  quantity: '',
+  cgst: 0,
+  sgst: 0,
+  total: ''
+}];
+
+const formatDate = (date) => {
+  if (!date) return "";
+  return new Date(date).toLocaleDateString("en-GB");
+};
+
 const Cashbill = () => {
   const navigate = useNavigate();
-
-  const handleGoBack = (event) => {
-    // Prevent navigation
-    navigate(-1); // Go to previous page
-  };
-
-  const fixedServices = [
-    'Consultation', 'Doctor Visit', 'Day care nursing', 'procedure done', 'Bed Charge',
-  ];
-
-  const initialServices = Array.from({ length: 10 }).map((_, index) => ({
-    no: index + 1,
-    service: fixedServices[index] || '',
-    price: '',
-    quantity: '',
-    cgst: 0,
-    sgst: 0,
-    total: ''
-  }));
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-GB");
-  };
+  const location = useLocation();
 
   const [data, setData] = useState({
     name: '',
@@ -61,15 +57,48 @@ const Cashbill = () => {
     }
   }, []);
 
-  const location = useLocation();
+  const editBill = React.useCallback(async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/cashbills/${id}`, { headers: getAuthHeaders() });
+      if (!res.ok) return alert('Failed to load bill');
+      const bill = await res.json();
+      // prepopulate form
+      setData({
+        name: bill.name || '',
+        contact: bill.contact || '',
+        age: bill.age || (bill.patientId && bill.patientId.age) || '',
+        admissionDate: bill.admissionDate ? formatDate(new Date(bill.admissionDate)) : formatDate(new Date()),
+        place: bill.place || 'Koppal',
+        patientId: bill.patientId && bill.patientId._id ? (bill.patientId.ipdNumber || '') : (bill.ipdNumber || ''),
+        dischargeDate: bill.dischargeDate ? formatDate(new Date(bill.dischargeDate)) : formatDate(new Date()),
+        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
+          no: i + 1,
+          service: s.service || '',
+          price: s.price || '',
+          quantity: s.quantity || '',
+          cgst: s.cgst || s.gst || 0,
+          sgst: s.sgst || 0,
+          total: s.total || ''
+        })) : initialServices,
+        total: bill.total || 0,
+        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
+        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
+        advancePayment: bill.advancePayment || 0,
+        netPayable: bill.netPayable || (bill.total - (bill.advancePayment || 0)) || 0,
+        ipdNumber: bill.ipdNumber || '',
+      });
+      setEditingId(id);
+    } catch (err) {
+      alert('Error loading bill: ' + err.message);
+    }
+  }, []);
+
 
   useEffect(() => {
-    // If navigated here to edit a bill, the table sends { editId }
-    if (location && location.state && location.state.editId) {
+    if (location?.state?.editId) {
       editBill(location.state.editId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location && location.state]);
+  }, [location, editBill]);
 
   const handleInputChange = (field, value) => {
     // If advancePayment change, ensure numeric and update netPayable
@@ -130,7 +159,6 @@ const Cashbill = () => {
     }
   };
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
 
   const populatePatientByContact = async (contactValue) => {
     if (!contactValue || String(contactValue).trim().length < 3) return;
@@ -209,6 +237,10 @@ const Cashbill = () => {
     }
   };
 
+  const handleGoBack = (event) => {
+    navigate('/details/cash-bill/table');
+  };
+
   const saveBill = async () => {
     try {
       // Basic validation
@@ -254,58 +286,16 @@ const Cashbill = () => {
         alert('Failed to save bill: ' + (err.error || res.statusText));
         return;
       }
-      const json = await res.json();
       alert(editingId ? 'Updated cash bill successfully' : 'Saved cash bill successfully');
-      // Reset form slightly: advance patient id counter and clear services
+      // Reset form
       setData({ ...data, services: initialServices, total: '', netPayable: '', advancePayment: 0 });
       setEditingId(null);
       // after saving/updating, redirect to table page
       navigate('/details/cash-bill/table');
-      return json;
     } catch (err) {
       alert('Error saving bill: ' + err.message);
     }
   };
-
-  // Note: list fetching and table rendering are moved to `cashBillTable.jsx`.
-
-  const editBill = async (id) => {
-    try {
-      const res = await fetch(`${API_URL}/api/v1/cashbills/${id}`, { headers: getAuthHeaders() });
-      if (!res.ok) return alert('Failed to load bill');
-      const bill = await res.json();
-      // prepopulate form
-      setData({
-        name: bill.name || '',
-        contact: bill.contact || '',
-        age: bill.age || (bill.patientId && bill.patientId.age) || '',
-        admissionDate: bill.admissionDate ? formatDate(new Date(bill.admissionDate)) : formatDate(new Date()),
-        place: bill.place || 'Koppal',
-        patientId: bill.patientId && bill.patientId._id ? (bill.patientId.ipdNumber || '') : (bill.ipdNumber || ''),
-        dischargeDate: bill.dischargeDate ? formatDate(new Date(bill.dischargeDate)) : formatDate(new Date()),
-        services: (bill.services && bill.services.length) ? bill.services.map((s, i) => ({
-          no: i + 1,
-          service: s.service || '',
-          price: s.price || '',
-          quantity: s.quantity || '',
-          cgst: s.cgst || s.gst || 0,
-          sgst: s.sgst || 0,
-          total: s.total || ''
-        })) : initialServices,
-        total: bill.total || 0,
-        totalCgst: (bill.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0),
-        totalSgst: (bill.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0),
-        advancePayment: bill.advancePayment || 0,
-        netPayable: bill.netPayable || (bill.total - (bill.advancePayment || 0)) || 0,
-        ipdNumber: bill.ipdNumber || '',
-      });
-      setEditingId(id);
-    } catch (err) {
-      alert('Error loading bill: ' + err.message);
-    }
-  };
-
-  // note: delete is handled from the table view in `cashBillTable.jsx`.
 
 
 
@@ -321,7 +311,6 @@ const Cashbill = () => {
     copyLabel.style.padding = '5px 20px';
     copyLabel.style.fontSize = '16px';
     copyLabel.style.color = '#333';
-    billContent.prepend(copyLabel);
 
     // Store original styles
     const originalStyles = [];
@@ -333,14 +322,36 @@ const Cashbill = () => {
       });
     });
 
-    // Hide no-print elements
+    // Temporarily disable sticky header so html2canvas can capture it properly
+    const header = billContent.querySelector('header');
+    let origHeaderPosition = '';
+    let origHeaderTop = '';
+    if (header) {
+      origHeaderPosition = header.style.position;
+      origHeaderTop = header.style.top;
+      header.style.position = 'relative';
+      header.style.top = 'auto';
+    }
+
+    // Lock width to A4 for consistent capture
+    const origWidth = billContent.style.width;
+    const origMaxWidth = billContent.style.maxWidth;
+    const origMargin = billContent.style.margin;
+    billContent.style.width = '210mm';
+    billContent.style.maxWidth = '210mm';
+    billContent.style.margin = '0 auto';
+
+    // Hide no-print elements (buttons, etc.)
     noPrintElements.forEach((el) => {
       el.dataset.origDisplay = el.style.display;
       el.style.display = 'none';
     });
 
+    // Insert copy label at top of bill
+    billContent.prepend(copyLabel);
+
     try {
-      // Expand inputs
+      // Expand inputs so text isn't clipped
       allInputs.forEach(el => {
         el.style.height = 'auto';
         el.style.height = (el.scrollHeight + 2) + 'px';
@@ -353,28 +364,72 @@ const Cashbill = () => {
         format: 'a4',
       });
 
+      const pdfPageWidth = pdf.internal.pageSize.getWidth();   // 210mm
+      const pdfPageHeight = pdf.internal.pageSize.getHeight();  // 297mm
+
       const captureCopy = async (label) => {
         copyLabel.textContent = label;
+
         const canvas = await html2canvas(billContent, {
-          scale: 3,
+          scale: 2,
           useCORS: true,
           logging: false,
           windowWidth: billContent.scrollWidth,
+          scrollY: 0,
+          scrollX: 0,
+          y: 0,
+          x: 0,
         });
-        return canvas.toDataURL('image/png', 1.0);
+
+        return canvas;
+      };
+
+      const addCanvasToPdf = (pdf, canvas, startNewPage) => {
+        const imgData = canvas.toDataURL('image/png');
+        const canvasWidthMM = pdfPageWidth;
+        const canvasHeightMM = (canvas.height * pdfPageWidth) / canvas.width;
+
+        // If content fits in one page, add it directly
+        if (canvasHeightMM <= pdfPageHeight) {
+          if (startNewPage) pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, 0, canvasWidthMM, canvasHeightMM);
+        } else {
+          // Split across multiple pages
+          const pageCanvasHeight = (pdfPageHeight / canvasHeightMM) * canvas.height;
+          let remainingHeight = canvas.height;
+          let sourceY = 0;
+          let isFirst = true;
+
+          while (remainingHeight > 0) {
+            const sliceHeight = Math.min(pageCanvasHeight, remainingHeight);
+
+            // Create a slice canvas for this page
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = sliceHeight;
+            const ctx = pageCanvas.getContext('2d');
+            ctx.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+
+            const pageImgData = pageCanvas.toDataURL('image/png');
+            const sliceHeightMM = (sliceHeight * pdfPageWidth) / canvas.width;
+
+            if (!isFirst || startNewPage) pdf.addPage();
+            pdf.addImage(pageImgData, 'PNG', 0, 0, pdfPageWidth, sliceHeightMM);
+
+            sourceY += sliceHeight;
+            remainingHeight -= sliceHeight;
+            isFirst = false;
+          }
+        }
       };
 
       // Patient Copy
-      const imgData1 = await captureCopy('PATIENT COPY');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgProps = pdf.getImageProperties(imgData1);
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const canvas1 = await captureCopy('PATIENT COPY');
+      addCanvasToPdf(pdf, canvas1, false);
 
       // Hospital Copy
-      pdf.addPage();
-      const imgData2 = await captureCopy('HOSPITAL COPY');
-      pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const canvas2 = await captureCopy('HOSPITAL COPY');
+      addCanvasToPdf(pdf, canvas2, true);
 
       pdf.save(`cash-bill-${Date.now()}.pdf`);
     } catch (err) {
@@ -386,7 +441,18 @@ const Cashbill = () => {
         copyLabel.parentNode.removeChild(copyLabel);
       }
 
-      // Restore styles
+      // Restore header positioning
+      if (header) {
+        header.style.position = origHeaderPosition;
+        header.style.top = origHeaderTop;
+      }
+
+      // Restore width
+      billContent.style.width = origWidth;
+      billContent.style.maxWidth = origMaxWidth;
+      billContent.style.margin = origMargin;
+
+      // Restore input styles
       originalStyles.forEach(item => {
         item.el.style.height = item.height;
         item.el.style.overflow = item.overflow;
@@ -497,7 +563,7 @@ const Cashbill = () => {
                   <td className="p-2 border">
                     <input type="text" value={service.total} readOnly className="w-full p-1" />
                   </td>
-                  <td className="p-2 border">
+                  <td className="p-2 border no-print">
                     <button aria-label={`Remove row ${index + 1}`} title="Remove" className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm" onClick={() => removeRow(index)}>×</button>
                   </td>
                 </tr>

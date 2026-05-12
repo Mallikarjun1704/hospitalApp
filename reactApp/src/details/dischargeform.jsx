@@ -156,8 +156,7 @@ const PatientForm = () => {
 
   const navigate = useNavigate();
   const handleGoBack = () => {
-    // Prevent navigation
-    navigate("/details/patient-details"); // Go to previous page
+    navigate("/dashboard");
   };
 
   return (

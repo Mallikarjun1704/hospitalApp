@@ -6,8 +6,9 @@ import html2canvas from "html2canvas";
 import "tailwindcss/tailwind.css";
 import { useNavigate, useLocation } from "react-router-dom";
 
+const doctors = ["Dr. Channakeshava K B", "Dr. Mahesh Kumar", "Dr. Priya Singh", "Dr. Rajesh Verma", "Dr. Anita Desai"];
+
 export default function AddPatient() {
-  const doctors = ["Dr. Channakeshava K B", "Dr. Mahesh Kumar", "Dr. Priya Singh", "Dr. Rajesh Verma", "Dr. Anita Desai"];
 
   const [formData, setFormData] = useState({
     name: "",
@@ -61,6 +62,7 @@ export default function AddPatient() {
     const newIpdNumber = getNextNumber('IPD');
     setFormData(prev => ({ ...prev, ipdNumber: newIpdNumber }));
     localStorage.setItem("lastIpdNumber", newIpdNumber);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (e) => {
@@ -81,10 +83,7 @@ export default function AddPatient() {
   };
 
   const handleGoBack = () => {
-    const from = location.state && location.state.from;
-    if (from) return navigate(from);
-    if (window.history.length > 1) return navigate(-1);
-    return navigate("/dashboard");
+    navigate("/dashboard");
   };
 
   const resetForm = () => {
@@ -103,7 +102,7 @@ export default function AddPatient() {
       await res.json();
       resetForm();
       alert(editingId ? 'Patient updated' : 'Patient saved');
-      navigate('/details/patient-details');
+      navigate(formData.formType === 'OPD' ? '/details/opd-patients' : '/details/patient-details');
     } catch (err) { alert(err.message || 'Save failed'); }
   };
 

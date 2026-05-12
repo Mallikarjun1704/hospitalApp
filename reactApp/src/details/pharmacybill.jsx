@@ -235,8 +235,7 @@ const Medical = () => {
 
   const navigate = useNavigate();
   const handleGoBack = (event) => {
-    // Prevent navigation
-    navigate(-1); // Go to previous page
+    navigate('/details/medical-bill/table');
   };
 
   return (

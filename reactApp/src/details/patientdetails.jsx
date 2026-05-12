@@ -29,8 +29,7 @@ const PatientDetail = ({ type: propType }) => {
 
   useEffect(() => { fetchPatients(); }, [fetchPatients]);
   const handleGoBack = (event) => {
-    // Prevent navigation
-    navigate("/dashboard"); // Go to previous page
+    navigate('/dashboard');
   };
 
   const handleAddPatient = () => {

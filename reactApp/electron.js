@@ -3,25 +3,37 @@ const path = require('path');
 
 let mainWindow;
 
-app.on('ready', () => {
+function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    icon: path.join(__dirname, 'public', 'favicon.ico'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'), // Optional, for security
-      nodeIntegration: true, // Enable Node.js integration
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   });
 
-  // Load the React app
-  mainWindow.loadURL(
-    process.env.ELECTRON_START_URL || `file://${path.join(__dirname, 'build', 'index.html')}`
-  );
+  // In development, load from the React dev server; in production, load the built files
+  const startUrl =
+    process.env.ELECTRON_START_URL ||
+    `file://${path.join(__dirname, 'build', 'index.html')}`;
+
+  mainWindow.loadURL(startUrl);
+
+  // Open DevTools in development
+  if (process.env.ELECTRON_START_URL) {
+    mainWindow.webContents.openDevTools();
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
-});
+}
+
+app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

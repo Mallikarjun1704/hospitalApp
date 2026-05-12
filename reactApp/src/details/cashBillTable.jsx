@@ -74,12 +74,12 @@ const CashBillTable = () => {
     <div>
       <Header />
       <div className="p-4">
-        <h2 className="font-bold text-lg text-center">Saved Cash Bills</h2>
+        <h2 className="font-bold text-lg text-center">Hospital Cash Bills</h2>
 
         <div className="flex justify-between mt-4 mb-2">
           <div>
-            <button className="px-4 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 mr-2" onClick={() => navigate(-1)}>Back</button>
-            <button className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md" onClick={() => navigate('/details/medical-bill')}>Generate Medical Bill</button>
+            <button className="px-4 py-2 bg-slate-500 text-white rounded btn-tactile hover:bg-slate-600 mr-2" onClick={() => navigate('/dashboard')}>Back</button>
+            <button className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md" onClick={() => navigate('/details/cash-bill')}>Generate Cash Bill</button>
           </div>
           <div className="flex items-center space-x-2">
             <input placeholder="Filter by contact" value={contactFilter} onChange={(e) => setContactFilter(e.target.value)} className="p-2 border" />
@@ -126,29 +126,65 @@ const CashBillTable = () => {
                 <tr><td colSpan={isAdmin ? 11 : 10} className="p-4">No bills found</td></tr>
               )}
               {currentData.map((b, i) => (
-                <tr key={b._id} className={`border-t hover:bg-gray-50 transition-colors ${b.isPlaceholder ? 'h-10' : ''}`}>
-                  <td className="p-2 border">{!b.isPlaceholder ? start + i + 1 : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? b.name : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? b.contact : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? ((b.patientId && b.patientId.ipdNumber) || b.ipdNumber || '-') : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? (b.total || 0) : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? (b.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0) : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? (b.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0) : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? (b.advancePayment || 0) : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? (b.netPayable || 0) : ''}</td>
-                  <td className="p-2 border">{!b.isPlaceholder ? (b.admissionDate ? formatDate(new Date(b.admissionDate)) : (b.date ? formatDate(new Date(b.date)) : '-')) : ''}</td>
-                  {isAdmin && (
-                    <td className="p-2 border space-x-2 whitespace-nowrap">
-                      {!b.isPlaceholder && (
-                        <>
-                          <button className="px-2 py-1 bg-amber-500 text-white rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium" onClick={() => editBill(b._id)}>Edit</button>
-                          <button className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium" onClick={() => deleteBill(b._id)}>Delete</button>
-                          <button className="px-2 py-1 bg-blue-500 text-white rounded btn-tactile hover:bg-blue-600 shadow-sm" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
-                        </>
-                      )}
-                    </td>
+                <React.Fragment key={b._id}>
+                  <tr className={`border-t hover:bg-gray-50 transition-colors ${b.isPlaceholder ? 'h-10' : ''}`}>
+                    <td className="p-2 border">{!b.isPlaceholder ? start + i + 1 : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? b.name : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? b.contact : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? ((b.patientId && b.patientId.ipdNumber) || b.ipdNumber || '-') : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? (b.total || 0) : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? (b.services || []).reduce((sum, s) => sum + (s.cgst || s.gst || 0), 0) : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? (b.services || []).reduce((sum, s) => sum + (s.sgst || 0), 0) : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? (b.advancePayment || 0) : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? (b.netPayable || 0) : ''}</td>
+                    <td className="p-2 border">{!b.isPlaceholder ? (b.admissionDate ? formatDate(new Date(b.admissionDate)) : (b.date ? formatDate(new Date(b.date)) : '-')) : ''}</td>
+                    {isAdmin && (
+                      <td className="p-2 border space-x-2 whitespace-nowrap">
+                        {!b.isPlaceholder && (
+                          <>
+                            <button className="px-2 py-1 bg-amber-500 text-white rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium" onClick={() => editBill(b._id)}>Edit</button>
+                            <button className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium" onClick={() => deleteBill(b._id)}>Delete</button>
+                            <button className="px-2 py-1 bg-blue-500 text-white rounded btn-tactile hover:bg-blue-600 shadow-sm" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
+                          </>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                  {!b.isPlaceholder && expanded[b._id] && (
+                    <tr>
+                      <td colSpan={isAdmin ? 11 : 10} className="p-4 bg-gray-50 border">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left border bg-white shadow-sm rounded">
+                            <thead className="bg-slate-200">
+                              <tr>
+                                <th className="p-2 border font-bold">No</th>
+                                <th className="p-2 border font-bold">Service</th>
+                                <th className="p-2 border font-bold">Price</th>
+                                <th className="p-2 border font-bold">Qty</th>
+                                <th className="p-2 border font-bold">CGST</th>
+                                <th className="p-2 border font-bold">SGST</th>
+                                <th className="p-2 border font-bold">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(b.services || []).map((s, idx) => (
+                                <tr key={idx} className="border-t">
+                                  <td className="p-2 border">{idx + 1}</td>
+                                  <td className="p-2 border">{s.service}</td>
+                                  <td className="p-2 border">{s.price}</td>
+                                  <td className="p-2 border">{s.quantity}</td>
+                                  <td className="p-2 border">{s.cgst || s.gst || 0}</td>
+                                  <td className="p-2 border">{s.sgst || 0}</td>
+                                  <td className="p-2 border font-medium text-indigo-600">{s.total}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </tr>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
