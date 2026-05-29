@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { HashRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import Login from "./auth/login";
 import Dashboard from "./common/dashboard";
 import Card from "./common/cards"

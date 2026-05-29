@@ -40,11 +40,11 @@ function createWindow() {
   });
 
   // In development, load from the React dev server; in production, load the built files
-  const startUrl =
-    process.env.ELECTRON_START_URL ||
-    `file://${path.join(__dirname, 'build', 'index.html')}`;
-
-  mainWindow.loadURL(startUrl);
+  if (process.env.ELECTRON_START_URL) {
+    mainWindow.loadURL(process.env.ELECTRON_START_URL);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
+  }
 
   // Open DevTools in development
   if (process.env.ELECTRON_START_URL) {

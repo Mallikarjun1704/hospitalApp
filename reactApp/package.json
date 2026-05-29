@@ -25,6 +25,7 @@
     "electron:build": "electron-builder --win"
   },
   "build": {
+    "extends": null,
     "appId": "com.hospital.app",
     "productName": "Hospital App",
     "files": [
@@ -33,10 +34,16 @@
     ],
     "directories": {
       "buildResources": "public",
-      "output": "dist"
+      "output": "../dist"
     },
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "extraResources": [
       {
