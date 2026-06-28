@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const Login = ({ onLogin, onForgotPassword }) => {
   const [showRegister, setShowRegister] = useState(false);
@@ -17,7 +17,24 @@ const Login = ({ onLogin, onForgotPassword }) => {
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
 
+  const [adminExists, setAdminExists] = useState(true);
+
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/check-admin`);
+        if (res.ok) {
+          const data = await res.json();
+          setAdminExists(data.exists);
+        }
+      } catch (err) {
+        console.error("Failed to check if admin exists", err);
+      }
+    };
+    checkAdmin();
+  }, [API_URL]);
 
   const handleLogin = async () => {
     setError("");
@@ -88,6 +105,7 @@ const Login = ({ onLogin, onForgotPassword }) => {
 
       alert("Admin account created successfully! Please sign in.");
       setShowRegister(false);
+      setAdminExists(true);
       setEmail(regEmail);
       setPassword("");
       setRegUserName("");
@@ -293,12 +311,14 @@ const Login = ({ onLogin, onForgotPassword }) => {
                 >
                   Forgot your credentials?
                 </button>
-                <button
-                  onClick={() => { setShowRegister(true); setError(""); }}
-                  className="text-[11px] font-black uppercase tracking-widest text-[#049746] hover:text-[#00CED1] transition-colors duration-300"
-                >
-                  Create Admin Account
-                </button>
+                {!adminExists && (
+                  <button
+                    onClick={() => { setShowRegister(true); setError(""); }}
+                    className="text-[11px] font-black uppercase tracking-widest text-[#049746] hover:text-[#00CED1] transition-colors duration-300"
+                  >
+                    Create Admin Account
+                  </button>
+                )}
               </div>
             </div>
           )}

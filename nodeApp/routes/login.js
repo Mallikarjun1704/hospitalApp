@@ -22,6 +22,16 @@ const generateRefreshToken = (user) => {
   return jwt.sign({ _id: id, username, userType }, process.env.REFRESH_TOKEN_SECRET);
 };
 
+// Check if any admin account exists
+router.get('/check-admin', async (req, res) => {
+  try {
+    const adminExists = await User.exists({ userType: 'admin' });
+    res.json({ exists: !!adminExists });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Login route to generate tokens
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
