@@ -3,6 +3,15 @@ const router = express.Router();
 const CashBill = require('../models/CashBill');
 const Patient = require('../models/Patient');
 
+const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.userType === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+};
+
+
 // Create a cash bill and upsert patient amount/details
 router.post('/', async (req, res) => {
   try {
@@ -140,7 +149,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update a cash bill and optionally update patient details
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const update = req.body;
     // helper to robustly parse dates
@@ -216,7 +225,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete a cash bill
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const bill = await CashBill.findByIdAndDelete(req.params.id);
     if (!bill) return res.status(404).json({ error: 'Bill not found' });

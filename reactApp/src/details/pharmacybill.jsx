@@ -59,9 +59,12 @@ const Medical = () => {
     if (field === 'price' || field === 'quantity' || field === 'cgst' || field === 'sgst') {
       const price = parseFloat(updatedServices[index].price) || 0;
       const quantity = parseInt(updatedServices[index].quantity) || 0;
-      const cgst = parseFloat(updatedServices[index].cgst) || 0;
-      const sgst = parseFloat(updatedServices[index].sgst) || 0;
-      updatedServices[index].total = (price * quantity) + cgst + sgst || 0;
+      const cgstPct = parseFloat(updatedServices[index].cgst) || 0;
+      const sgstPct = parseFloat(updatedServices[index].sgst) || 0;
+      const base = price * quantity;
+      const cgstAmt = base * cgstPct / 100;
+      const sgstAmt = base * sgstPct / 100;
+      updatedServices[index].total = base + cgstAmt + sgstAmt || 0;
     }
 
     const updatedTotal = updatedServices.reduce(
@@ -69,8 +72,14 @@ const Medical = () => {
       0
     );
 
-    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.cgst) || 0), 0);
-    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (parseFloat(item.sgst) || 0), 0);
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => {
+      const base = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+      return sum + (base * (parseFloat(item.cgst) || 0) / 100);
+    }, 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => {
+      const base = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+      return sum + (base * (parseFloat(item.sgst) || 0) / 100);
+    }, 0);
 
     setData({
       ...data,
@@ -96,8 +105,14 @@ const Medical = () => {
     }
 
     const updatedTotal = updatedServices.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-    const updatedTotalCgst = updatedServices.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0);
-    const updatedTotalSgst = updatedServices.reduce((sum, item) => sum + (Number(item.sgst) || 0), 0);
+    const updatedTotalCgst = updatedServices.reduce((sum, item) => {
+      const base = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+      return sum + (base * (parseFloat(item.cgst) || 0) / 100);
+    }, 0);
+    const updatedTotalSgst = updatedServices.reduce((sum, item) => {
+      const base = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+      return sum + (base * (parseFloat(item.sgst) || 0) / 100);
+    }, 0);
     setData({
       ...data,
       services: updatedServices,
@@ -274,8 +289,8 @@ const Medical = () => {
                 <th className="p-2 border text-white">Name</th>
                 <th className="p-2 border text-white">Price</th>
                 <th className="p-2 border text-white">Quantity</th>
-                <th className="p-2 border text-white">CGST</th>
-                <th className="p-2 border text-white">SGST</th>
+                <th className="p-2 border text-white">CGST (%)</th>
+                <th className="p-2 border text-white">SGST (%)</th>
                 <th className="p-2 border text-white">Total (Rupees)</th>
               </tr>
             </thead>

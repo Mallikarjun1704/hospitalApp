@@ -115,15 +115,15 @@ const CashBillTable = () => {
                 <th className="p-2 border">Advance</th>
                 <th className="p-2 border">Net Payable</th>
                 <th className="p-2 border">Date</th>
-                {isAdmin && <th className="p-2 border">Actions</th>}
+                <th className="p-2 border">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={isAdmin ? 11 : 10} className="p-4">Loading...</td></tr>
+                <tr><td colSpan={11} className="p-4">Loading...</td></tr>
               )}
               {!loading && currentData.length === 0 && (
-                <tr><td colSpan={isAdmin ? 11 : 10} className="p-4">No bills found</td></tr>
+                <tr><td colSpan={11} className="p-4">No bills found</td></tr>
               )}
               {currentData.map((b, i) => (
                 <React.Fragment key={b._id}>
@@ -138,21 +138,23 @@ const CashBillTable = () => {
                     <td className="p-2 border">{!b.isPlaceholder ? (b.advancePayment || 0) : ''}</td>
                     <td className="p-2 border">{!b.isPlaceholder ? (b.netPayable || 0) : ''}</td>
                     <td className="p-2 border">{!b.isPlaceholder ? (b.admissionDate ? formatDate(new Date(b.admissionDate)) : (b.date ? formatDate(new Date(b.date)) : '-')) : ''}</td>
-                    {isAdmin && (
-                      <td className="p-2 border space-x-2 whitespace-nowrap">
-                        {!b.isPlaceholder && (
-                          <>
-                            <button className="px-2 py-1 bg-amber-500 text-white rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium" onClick={() => editBill(b._id)}>Edit</button>
-                            <button className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium" onClick={() => deleteBill(b._id)}>Delete</button>
-                            <button className="px-2 py-1 bg-blue-500 text-white rounded btn-tactile hover:bg-blue-600 shadow-sm" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
-                          </>
-                        )}
-                      </td>
-                    )}
+                    <td className="p-2 border space-x-2 whitespace-nowrap">
+                      {!b.isPlaceholder && (
+                        <>
+                          {isAdmin && (
+                            <>
+                              <button className="px-2 py-1 bg-amber-500 text-white rounded btn-tactile hover:bg-amber-600 shadow-sm font-medium" onClick={() => editBill(b._id)}>Edit</button>
+                              <button className="px-2 py-1 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 shadow-sm font-medium" onClick={() => deleteBill(b._id)}>Delete</button>
+                            </>
+                          )}
+                          <button className="px-2 py-1 bg-blue-500 text-white rounded btn-tactile hover:bg-blue-600 shadow-sm" onClick={() => setExpanded({ ...expanded, [b._id]: !expanded[b._id] })}>{expanded[b._id] ? 'Hide' : 'View'}</button>
+                        </>
+                      )}
+                    </td>
                   </tr>
                   {!b.isPlaceholder && expanded[b._id] && (
                     <tr>
-                      <td colSpan={isAdmin ? 11 : 10} className="p-4 bg-gray-50 border">
+                      <td colSpan={11} className="p-4 bg-gray-50 border">
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm text-left border bg-white shadow-sm rounded">
                             <thead className="bg-slate-200">

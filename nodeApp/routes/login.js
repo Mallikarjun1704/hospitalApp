@@ -11,13 +11,15 @@ const generateAccessToken = (user) => {
   // user may be a mongoose doc or a decoded token payload
   const id = user._id || user.id;
   const username = user.email || user.username || user.emailId;
-  return jwt.sign({ _id: id, username }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
+  const userType = user.userType;
+  return jwt.sign({ _id: id, username, userType }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
 };
 
 const generateRefreshToken = (user) => {
   const id = user._id || user.id;
   const username = user.email || user.username || user.emailId;
-  return jwt.sign({ _id: id, username }, process.env.REFRESH_TOKEN_SECRET);
+  const userType = user.userType;
+  return jwt.sign({ _id: id, username, userType }, process.env.REFRESH_TOKEN_SECRET);
 };
 
 // Login route to generate tokens
@@ -94,6 +96,25 @@ router.post('/logout', (req, res) => {
     tokenStore.addRevokedAccessToken(req.body.accessToken);
   }
   res.json({ message: 'Logged out / refresh token revoked' });
+});
+
+// Forgot password / reset password endpoint
+router.post('/forgot-password', async (req, res) => {
+  const { email, phoneNumber, newPassword } = req.body;
+  if (!email || !phoneNumber || !newPassword) {
+    return res.status(400).json({ error: 'Email, phone number, and new password are required' });
+  }
+  try {
+    const user = await User.findOne({ email, phoneNumber });
+    if (!user) {
+      return res.status(400).json({ error: 'User with this email and phone number does not exist' });
+    }
+    user.password = newPassword;
+    await user.save();
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;

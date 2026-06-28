@@ -3,7 +3,7 @@ import Header from "../common/header";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import "tailwindcss/tailwind.css";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getAuthHeaders } from "../utils/api";
 
 const PatientForm = () => {
@@ -41,13 +41,82 @@ const PatientForm = () => {
     }
   }, []);
 
-  // Auto-populate patient details by contact number
+  // Pre-fill form when editing from table
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state && location.state.editData) {
+      const ds = location.state.editData;
+      setFormData({
+        patientName: ds.patientName || "",
+        contactNumber: ds.contactNumber || "",
+        ipdNumber: ds.ipdNumber || "",
+        admissionNumber: ds.admissionNumber || "",
+        consultantName: ds.consultantName || "",
+        admissionDate: ds.admissionDate ? ds.admissionDate.split('T')[0] : "",
+        admissionTime: ds.admissionTime || "",
+        dischargeDate: ds.dischargeDate ? ds.dischargeDate.split('T')[0] : "",
+        dischargeTime: ds.dischargeTime || "",
+        provisionalDiagnosis: ds.provisionalDiagnosis || "",
+        finalDiagnosis: ds.finalDiagnosis || "",
+        icdCode: ds.icdCode || "",
+        presentingComplaints: ds.presentingComplaints || "",
+        illnessSummary: ds.illnessSummary || "",
+        keyFindings: ds.keyFindings || "",
+        substanceHistory: ds.substanceHistory || "",
+        pastHistory: ds.pastHistory || "",
+        familyHistory: ds.familyHistory || "",
+        investigations: ds.investigations || "",
+        hospitalCourse: ds.hospitalCourse || "",
+        dischargeAdvice: ds.dischargeAdvice || "",
+        mlcNumber: ds.mlcNumber || ""
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-populate patient details or saved discharge summary by contact number
   useEffect(() => {
     const val = formData.contactNumber;
     if (!val || val.length < 10) return;
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8889';
+        
+        // 1. Try to find a saved discharge summary first
+        const dsRes = await fetch(`${apiUrl}/api/v1/dischargesummaries/find?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
+        if (dsRes.ok) {
+          const ds = await dsRes.json();
+          if (ds) {
+            setFormData({
+              patientName: ds.patientName || "",
+              contactNumber: ds.contactNumber || val,
+              ipdNumber: ds.ipdNumber || "",
+              admissionNumber: ds.admissionNumber || "",
+              consultantName: ds.consultantName || "",
+              admissionDate: ds.admissionDate ? ds.admissionDate.split('T')[0] : "",
+              admissionTime: ds.admissionTime || "",
+              dischargeDate: ds.dischargeDate ? ds.dischargeDate.split('T')[0] : "",
+              dischargeTime: ds.dischargeTime || "",
+              provisionalDiagnosis: ds.provisionalDiagnosis || "",
+              finalDiagnosis: ds.finalDiagnosis || "",
+              icdCode: ds.icdCode || "",
+              presentingComplaints: ds.presentingComplaints || "",
+              illnessSummary: ds.illnessSummary || "",
+              keyFindings: ds.keyFindings || "",
+              substanceHistory: ds.substanceHistory || "",
+              pastHistory: ds.pastHistory || "",
+              familyHistory: ds.familyHistory || "",
+              investigations: ds.investigations || "",
+              hospitalCourse: ds.hospitalCourse || "",
+              dischargeAdvice: ds.dischargeAdvice || "",
+              mlcNumber: ds.mlcNumber || ""
+            });
+            return; // Found saved summary, stop and don't overwrite with default patient info
+          }
+        }
+
+        // 2. Otherwise fall back to the default patient details
+        const res = await fetch(`${apiUrl}/api/v1/patients/filter?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const p = await res.json();
         if (p) {
@@ -157,6 +226,29 @@ const PatientForm = () => {
   const navigate = useNavigate();
   const handleGoBack = () => {
     navigate("/dashboard");
+  };
+
+  const handleSave = async () => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8889';
+      const res = await fetch(`${apiUrl}/api/v1/dischargesummaries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Discharge summary saved successfully!');
+      } else {
+        alert('Failed to save discharge summary: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving discharge summary');
+    }
   };
 
   return (
@@ -375,6 +467,13 @@ const PatientForm = () => {
             </div>
 
             <div className="flex justify-center pt-6 no-print">
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-8 py-3 bg-green-600 text-white font-bold rounded btn-tactile shadow-lg hover:bg-green-700 font-medium mr-4"
+              >
+                Save Summary
+              </button>
               <button
                 type="button"
                 onClick={generatePDF}

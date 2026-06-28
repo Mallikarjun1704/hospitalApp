@@ -71,12 +71,14 @@ export default function MedicineInventory() {
             >
               Back to Dashboard
             </button>
-            <button
-              onClick={handleAddMedicine}
-              className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md"
-            >
-              + Add Medicine
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleAddMedicine}
+                className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-md"
+              >
+                + Add Medicine
+              </button>
+            )}
           </div>
         </div>
 
@@ -197,62 +199,64 @@ export default function MedicineInventory() {
             </div>
           )}
         </div>
-        <div className="mt-6 flex items-center space-x-3">
-          <button
-            className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-sm"
-            onClick={() => {
-              try {
-                const headers = ['code', 'name', 'stock', 'purchasePrice', 'salePrice', 'purchaseDate', 'expiryDate', 'manufacturer', 'description'];
-                const sampleRow = ['MED-0001', 'Paracetamol', '100', '10.00', '12.00', '2025-01-01', '2026-01-01', 'Acme', 'Pain relief'];
-                const csv = headers.join(',') + '\n' + sampleRow.join(',') + '\n';
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.setAttribute('download', 'medicine-sample.csv');
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-              } catch (err) {
-                console.error('Failed to generate sample CSV', err);
-                alert('Failed to generate sample CSV');
-              }
-            }}
-          >
-            Download Sample CSV
-          </button>
-          <label className="px-4 py-2 bg-gray-200 rounded cursor-pointer">
-            Upload CSV
-            <input type="file" accept="text/csv" className="hidden" onChange={async (e) => {
-              const el = e.target;
-              const file = el.files && el.files[0];
-              if (!file) return;
-              const form = new FormData();
-              form.append('file', file);
-              const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
-              try {
-                const headers = getAuthHeaders();
-                // remove content-type to allow browser to set the correct multipart boundary
-                delete headers['Content-Type'];
-                const res = await fetch(`${API_URL}/api/v1/medicine/medicines/upload-csv`, { method: 'POST', body: form, headers });
-                const data = await res.json();
-                if (!res.ok) return alert(data.error || 'Upload failed');
-                alert('Upload complete');
-                // refresh list
-                const listRes = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
-                const list = await listRes.json();
-                setMedicines(list);
-              } catch (err) {
-                console.error(err);
-                alert('Upload failed');
-              } finally {
-                // reset input so the same file can be selected again
-                el.value = null;
-              }
-            }} />
-          </label>
-        </div>
+        {isAdmin && (
+          <div className="mt-6 flex items-center space-x-3">
+            <button
+              className="px-4 py-2 bg-emerald-600 text-white rounded btn-tactile hover:bg-emerald-700 font-medium shadow-sm"
+              onClick={() => {
+                try {
+                  const headers = ['code', 'name', 'stock', 'purchasePrice', 'salePrice', 'purchaseDate', 'expiryDate', 'manufacturer', 'description'];
+                  const sampleRow = ['MED-0001', 'Paracetamol', '100', '10.00', '12.00', '2025-01-01', '2026-01-01', 'Acme', 'Pain relief'];
+                  const csv = headers.join(',') + '\n' + sampleRow.join(',') + '\n';
+                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.setAttribute('download', 'medicine-sample.csv');
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error('Failed to generate sample CSV', err);
+                  alert('Failed to generate sample CSV');
+                }
+              }}
+            >
+              Download Sample CSV
+            </button>
+            <label className="px-4 py-2 bg-gray-200 rounded cursor-pointer">
+              Upload CSV
+              <input type="file" accept="text/csv" className="hidden" onChange={async (e) => {
+                const el = e.target;
+                const file = el.files && el.files[0];
+                if (!file) return;
+                const form = new FormData();
+                form.append('file', file);
+                const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
+                try {
+                  const headers = getAuthHeaders();
+                  // remove content-type to allow browser to set the correct multipart boundary
+                  delete headers['Content-Type'];
+                  const res = await fetch(`${API_URL}/api/v1/medicine/medicines/upload-csv`, { method: 'POST', body: form, headers });
+                  const data = await res.json();
+                  if (!res.ok) return alert(data.error || 'Upload failed');
+                  alert('Upload complete');
+                  // refresh list
+                  const listRes = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
+                  const list = await listRes.json();
+                  setMedicines(list);
+                } catch (err) {
+                  console.error(err);
+                  alert('Upload failed');
+                } finally {
+                  // reset input so the same file can be selected again
+                  el.value = null;
+                }
+              }} />
+            </label>
+          </div>
+        )}
       </div>
     </div>
   );

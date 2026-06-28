@@ -9,10 +9,7 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 
-const Card = () => {
-  const [selectedCard, setSelectedCard] = useState(null);
-
-  const cards = [
+const cards = [
     {
       id: 1,
       title: "IPD Detail",
@@ -67,9 +64,36 @@ const Card = () => {
       sizeClass: "w-44 sm:w-48 md:w-52 lg:w-56",
       count: 3,
       gradient: "from-sky-400 to-blue-600",
-      link: "/details/discharge-form",
+      link: "/details/discharge-summary/table",
     },
   ];
+
+const Card = () => {
+  const [selectedCard, setSelectedCard] = useState(null);
+
+  const userType = localStorage.getItem("userType") || "guest";
+
+  const filteredCards = React.useMemo(() => {
+    return cards.filter(card => {
+      if (userType === "admin") return true;
+      if (userType === "hospital") {
+        return ["IPD Detail", "OPD Detail", "Hospital Cash Bill", "Discharge Form"].includes(card.title);
+      }
+      if (userType === "lab") {
+        return ["LAB Bill"].includes(card.title);
+      }
+      if (userType === "medicine" || userType === "medicine_shop") {
+        return ["Medicine Inventory", "Pharmacy Bill"].includes(card.title);
+      }
+      return false;
+    });
+  }, [userType]);
+
+  useEffect(() => {
+    if (filteredCards.length > 0 && !selectedCard) {
+      setSelectedCard(filteredCards[0]);
+    }
+  }, [filteredCards, selectedCard]);
 
   const [ipdRevenue, setIpdRevenue] = useState({ daily: 0, monthly: 0, yearly: 0 });
   const [ipdCounts, setIpdCounts] = useState({ daily: 0, monthly: 0, yearly: 0 });
@@ -90,7 +114,7 @@ const Card = () => {
   const [cashDailyDetails, setCashDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
   const [labRevenue, setLabRevenue] = useState({ daily: 0, monthly: 0, yearly: 0, total: 0 });
   const [labDailyDetails, setLabDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
-  const [medicineStats, setMedicineStats] = useState({ totalStock: 0, lowStockCount: 0, lowStockItems: [], totalValue: 0 });
+  const [medicineStats, setMedicineStats] = useState({ totalStock: 0, lowStockCount: 0, lowStockItems: [], totalValue: 0, totalPurchaseCost: 0, totalItemTypes: 0 });
   const [showDailyModal, setShowDailyModal] = useState(false);
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
 
@@ -236,8 +260,10 @@ const Card = () => {
               const meds = await mres.json();
               const totalStock = (meds || []).reduce((sum, m) => sum + (Number(m.stock) || 0), 0);
               const totalValue = (meds || []).reduce((sum, m) => sum + ((Number(m.stock) || 0) * (Number(m.salePrice) || 0)), 0);
+              const totalPurchaseCost = (meds || []).reduce((sum, m) => sum + ((Number(m.stock) || 0) * (Number(m.purchasePrice) || 0)), 0);
               const lowStockItems = (meds || []).filter(m => (Number(m.stock) || 0) <= 10);
-              setMedicineStats({ totalStock, lowStockCount: lowStockItems.length, lowStockItems, totalValue });
+              const totalItemTypes = meds?.length || 0;
+              setMedicineStats({ totalStock, lowStockCount: lowStockItems.length, lowStockItems, totalValue, totalPurchaseCost, totalItemTypes });
             }
           } catch (err) { console.error('Error fetching medicine stats', err); }
         })();
@@ -275,7 +301,7 @@ const Card = () => {
     <div className="flex flex-col p-4 sm:p-6 lg:p-8 gap-8 bg-gradient-to-br from-[#f8fafb] to-[#f0fdff] min-h-screen">
       {/* Row of Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 xl:gap-5 justify-items-center max-w-7xl mx-auto w-full">
-        {cards.map((card) => (
+        {filteredCards.map((card) => (
           <div
             key={card.id}
             className={`flex flex-col items-center bg-white rounded-2xl shadow-lg hover:shadow-2xl text-white relative overflow-hidden cursor-pointer w-full max-w-[160px] hover:-translate-y-2 transition-all duration-300 group btn-tactile`}
@@ -337,32 +363,56 @@ const Card = () => {
 
               <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
                 {['Daily', 'Monthly', 'Yearly'].map((label) => {
+                  const isMedicine = selectedCard.title === 'Medicine Inventory';
                   const isIpd = selectedCard.title === 'IPD Detail';
                   const isOpd = selectedCard.title === 'OPD Detail';
                   const revenueSource = isIpd ? ipdRevenue : isOpd ? opdRevenue : selectedCard.title === 'Hospital Cash Bill' ? cashRevenue : selectedCard.title === 'LAB Bill' ? labRevenue : selectedCard.title === 'Pharmacy Bill' ? medicalRevenue : pharmacyRevenue;
-                  const amount = label === 'Daily' ? revenueSource.daily : label === 'Monthly' ? revenueSource.monthly : revenueSource.yearly;
-
-                  let count = 0;
-                  if (isIpd) count = label === 'Daily' ? ipdCounts.daily : label === 'Monthly' ? ipdCounts.monthly : ipdCounts.yearly;
-                  else if (isOpd) count = label === 'Daily' ? opdCounts.daily : label === 'Monthly' ? opdCounts.monthly : opdCounts.yearly;
-                  else if (selectedCard.title === 'Pharmacy Bill') count = label === 'Daily' ? (medicalDailyDetails.count || 0) : (label === 'Monthly' ? medicalRevenue.monthlyCount : medicalRevenue.yearlyCount);
-                  else if (selectedCard.title === 'Medicine Inventory') count = label === 'Daily' ? (pharmacyDailyDetails.count || 0) : (label === 'Monthly' ? pharmacyRevenue.monthlyCount : pharmacyRevenue.yearlyCount);
-                  else if (selectedCard.title === 'Hospital Cash Bill') count = label === 'Daily' ? (cashDailyDetails.count || 0) : (label === 'Monthly' ? cashRevenue.monthlyCount : cashRevenue.yearlyCount);
-                  else if (selectedCard.title === 'LAB Bill') count = label === 'Daily' ? (labDailyDetails.count || 0) : (label === 'Monthly' ? labRevenue.monthlyCount : labRevenue.yearlyCount);
-
+                  
+                  let displayLabel = label;
+                  let amount = 0;
                   let subText = '';
-                  if (selectedCard.title === 'Medicine Inventory') subText = `Stock: ${medicineStats.totalStock || 0}`;
-                  else if (selectedCard.title === 'Pharmacy Bill') subText = `Bills: ${count}`;
-                  else if (isIpd || isOpd) subText = `Patients: ${count}`;
-                  else subText = `Count: ${count}`;
+
+                  if (isMedicine) {
+                    if (label === 'Daily') {
+                      displayLabel = 'Stock Value';
+                      amount = medicineStats.totalValue || 0;
+                      subText = `Total Stock: ${medicineStats.totalStock || 0}`;
+                    } else if (label === 'Monthly') {
+                      displayLabel = 'Purchase Cost';
+                      amount = medicineStats.totalPurchaseCost || 0;
+                      subText = `Item Types: ${medicineStats.totalItemTypes || 0}`;
+                    } else {
+                      displayLabel = 'Potential Profit';
+                      amount = (medicineStats.totalValue || 0) - (medicineStats.totalPurchaseCost || 0);
+                      subText = `Low Stock: ${medicineStats.lowStockCount || 0}`;
+                    }
+                  } else {
+                    amount = label === 'Daily' ? revenueSource.daily : label === 'Monthly' ? revenueSource.monthly : revenueSource.yearly;
+                    let count = 0;
+                    if (isIpd) count = label === 'Daily' ? ipdCounts.daily : label === 'Monthly' ? ipdCounts.monthly : ipdCounts.yearly;
+                    else if (isOpd) count = label === 'Daily' ? opdCounts.daily : label === 'Monthly' ? opdCounts.monthly : opdCounts.yearly;
+                    else if (selectedCard.title === 'Pharmacy Bill') count = label === 'Daily' ? (medicalDailyDetails.count || 0) : (label === 'Monthly' ? medicalRevenue.monthlyCount : medicalRevenue.yearlyCount);
+                    else if (selectedCard.title === 'Hospital Cash Bill') count = label === 'Daily' ? (cashDailyDetails.count || 0) : (label === 'Monthly' ? cashRevenue.monthlyCount : cashRevenue.yearlyCount);
+                    else if (selectedCard.title === 'LAB Bill') count = label === 'Daily' ? (labDailyDetails.count || 0) : (label === 'Monthly' ? labRevenue.monthlyCount : labRevenue.yearlyCount);
+
+                    if (selectedCard.title === 'Pharmacy Bill') subText = `Bills: ${count}`;
+                    else if (isIpd || isOpd) subText = `Patients: ${count}`;
+                    else subText = `Count: ${count}`;
+                  }
 
                   const colorClass = label === 'Daily' ? 'from-blue-50 to-blue-100 text-blue-700 border-blue-200' : label === 'Monthly' ? 'from-emerald-50 to-emerald-100 text-emerald-700 border-emerald-200' : 'from-purple-50 to-purple-100 text-purple-700 border-purple-200';
 
                   return (
                     <div
                       key={label}
-                      className={`relative group h-32 rounded-2xl border-2 p-5 flex flex-col justify-between transition-all duration-300 hover:scale-105 btn-tactile overflow-hidden bg-gradient-to-br ${colorClass}`}
+                      className={`relative group h-32 rounded-2xl border-2 p-5 flex flex-col justify-between transition-all duration-300 hover:scale-105 btn-tactile overflow-hidden bg-gradient-to-br ${colorClass} cursor-pointer`}
                       onClick={() => {
+                        if (isMedicine) {
+                          if (label === 'Yearly') {
+                            setShowDailyModal(true);
+                          }
+                          return;
+                        }
                         if (label !== 'Daily') return;
                         if ((isIpd || isOpd) && dailyDetails?.patients?.length) setShowDailyModal(true);
                         else if (selectedCard.title === 'Pharmacy Bill' && medicalDailyDetails?.items?.length) setShowDailyModal(true);
@@ -372,14 +422,14 @@ const Card = () => {
                       }}
                     >
                       <div className="flex justify-between items-start">
-                        <span className="text-xs font-black uppercase tracking-widest opacity-60">{label}</span>
-                        {label === 'Daily' && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>}
+                        <span className="text-xs font-black uppercase tracking-widest opacity-60">{displayLabel}</span>
+                        {((!isMedicine && label === 'Daily') || (isMedicine && label === 'Yearly')) && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>}
                       </div>
                       <div>
                         <div className="text-2xl font-black tracking-tight">{formatCurrency(amount)}</div>
                         <div className="text-[10px] font-bold uppercase opacity-70 mt-1">{subText}</div>
                       </div>
-                      {label === 'Daily' && <div className="absolute top-1 right-1 text-[8px] font-bold text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase px-2 py-1">Click for Details</div>}
+                      {((!isMedicine && label === 'Daily') || (isMedicine && label === 'Yearly')) && <div className="absolute top-1 right-1 text-[8px] font-bold text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase px-2 py-1">Click for Details</div>}
                     </div>
                   );
                 })}

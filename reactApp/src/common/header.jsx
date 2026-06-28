@@ -196,7 +196,17 @@ const Header = ({ isSticky = true }) => {
                         <span className="text-xs font-black uppercase tracking-tighter">Dashboard</span>
                       </div>
                     </Link>
-                    <button onClick={handleSignOut} className="group">
+                    {user && user.userType === 'admin' && (
+                      <Link to="/manage-users" onClick={() => setIsOpen(false)} className="group">
+                        <div className="bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white p-3 rounded-xl text-center transition-all duration-300 border border-indigo-100 flex flex-col items-center gap-1">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                          <span className="text-xs font-black uppercase tracking-tighter">Manage Users</span>
+                        </div>
+                      </Link>
+                    )}
+                    <button onClick={handleSignOut} className={`group ${user && user.userType === 'admin' ? 'col-span-2' : ''}`}>
                       <div className="bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white p-3 rounded-xl text-center transition-all duration-300 border border-rose-100 flex flex-col items-center gap-1 w-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

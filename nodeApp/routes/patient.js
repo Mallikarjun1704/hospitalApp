@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const Patient = require('../models/Patient');
 
+const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.userType === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+};
+
+
 // Create patient
 router.post('/', async (req, res) => {
   try {
@@ -306,7 +315,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update patient
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const update = req.body;
 
@@ -336,7 +345,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete patient
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const patient = await Patient.findByIdAndDelete(req.params.id);
     if (!patient) return res.status(404).json({ error: 'Patient not found' });

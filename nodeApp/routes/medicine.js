@@ -5,8 +5,16 @@ const multer = require('multer');
 const upload = multer();
 const { parse } = require('csv-parse/sync');
 
+const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.userType === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+};
+
 // Add Medicine - handles duplicate codes by updating stock
-router.post("/medicines", async (req, res) => {
+router.post("/medicines", requireAdmin, async (req, res) => {
     try {
         const { code, name, stock } = req.body;
         if (!code || !name) return res.status(400).json({ error: 'code and name are required' });
@@ -47,7 +55,7 @@ router.get('/medicines/sample-csv', (req, res) => {
 });
 
 // CSV upload - accepts multipart/form-data (file field name: file)
-router.post('/medicines/upload-csv', upload.single('file'), async (req, res) => {
+router.post('/medicines/upload-csv', requireAdmin, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'file is required' });
         const text = req.file.buffer.toString('utf8');
@@ -109,7 +117,7 @@ router.get('/medicines/:id', async (req, res) => {
 });
 
 // Update Medicine
-router.put("/medicines/:id", async (req, res) => {
+router.put("/medicines/:id", requireAdmin, async (req, res) => {
     try {
         const medicine = await Medicine.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(medicine);
@@ -119,7 +127,7 @@ router.put("/medicines/:id", async (req, res) => {
 });
 
 // Delete Medicine
-router.delete("/medicines/:id", async (req, res) => {
+router.delete("/medicines/:id", requireAdmin, async (req, res) => {
     try {
         await Medicine.findByIdAndDelete(req.params.id);
         res.json({ message: "Medicine deleted" });
@@ -129,7 +137,7 @@ router.delete("/medicines/:id", async (req, res) => {
 });
 
 // Update Stock
-router.put("/medicines/:id/stock", async (req, res) => {
+router.put("/medicines/:id/stock", requireAdmin, async (req, res) => {
     try {
         const medicine = await Medicine.findByIdAndUpdate(req.params.id, { stock: req.body.stock }, { new: true });
         res.json(medicine);
@@ -139,7 +147,7 @@ router.put("/medicines/:id/stock", async (req, res) => {
 });
 
 // Update Stock for Multiple Medicines
-router.put("/medicines/stock/bulk", async (req, res) => {
+router.put("/medicines/stock/bulk", requireAdmin, async (req, res) => {
     try {
         // Expecting req.body to be an array: [{ id: '...', stock: 10 }, ...]
         const updates = req.body.map(item => ({

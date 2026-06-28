@@ -2,7 +2,14 @@ const express = require('express');
 const router = express.Router();
 const LabBill = require('../models/LabBill');
 const LabTest = require('../models/LabTest');
-// Optional LabStock model could be added; for now we support saving lab bills and revenue
+
+const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.userType === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+};
 
 // Create lab bill
 router.post('/', async (req, res) => {
@@ -43,10 +50,27 @@ router.get('/:id', async (req, res) => {
 });
 
 // update
-router.put('/:id', async (req, res) => { try { const update = req.body; const bill = await LabBill.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true }); if (!bill) return res.status(404).json({ error: 'Bill not found' }); res.json(bill); } catch (err) { res.status(500).json({ error: err.message }); } });
+router.put('/:id', requireAdmin, async (req, res) => {
+  try {
+    const update = req.body;
+    const bill = await LabBill.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    if (!bill) return res.status(404).json({ error: 'Bill not found' });
+    res.json(bill);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // delete
-router.delete('/:id', async (req, res) => { try { const b = await LabBill.findByIdAndDelete(req.params.id); if (!b) return res.status(404).json({ error: 'Bill not found' }); res.json({ message: 'Bill deleted' }); } catch (err) { res.status(500).json({ error: err.message }); } });
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    const b = await LabBill.findByIdAndDelete(req.params.id);
+    if (!b) return res.status(404).json({ error: 'Bill not found' });
+    res.json({ message: 'Bill deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // revenue stats
 router.get('/revenue/stats', async (req, res) => {

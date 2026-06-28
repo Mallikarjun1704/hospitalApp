@@ -18,6 +18,7 @@ const CashBillRoutes = require('./routes/cashbill');
 const LabTestsRoutes = require('./routes/labtests');
 const MedicalBillRoutes = require('./routes/medicalbill');
 const LabBillRoutes = require('./routes/labbill');
+const DischargeSummaryRoutes = require('./routes/dischargesummary');
 
 dotenv.config();
 const app = express();
@@ -79,6 +80,7 @@ app.use('/api/v1/labtests', authenticateToken, LabTestsRoutes);
 // Medical & Lab bill routes
 app.use('/api/v1/medicalbills', authenticateToken, MedicalBillRoutes);
 app.use('/api/v1/labbills', authenticateToken, LabBillRoutes);
+app.use('/api/v1/dischargesummaries', authenticateToken, DischargeSummaryRoutes);
 
 
 // Start HTTP server

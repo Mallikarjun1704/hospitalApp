@@ -3,6 +3,15 @@ const router = express.Router();
 const MedicalBill = require('../models/MedicalBill');
 const Medicine = require('../models/Medicine');
 
+const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.userType === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+};
+
+
 // Create medical bill and decrement medicine stock
 router.post('/', async (req, res) => {
   try {
@@ -56,7 +65,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // update
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const update = req.body;
     const bill = await MedicalBill.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
@@ -66,7 +75,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // delete
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const b = await MedicalBill.findByIdAndDelete(req.params.id);
     if (!b) return res.status(404).json({ error: 'Bill not found' });
