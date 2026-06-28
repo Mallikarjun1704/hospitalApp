@@ -90,7 +90,7 @@ const Header = ({ isSticky = true }) => {
           <div className="flex items-center gap-4">
             <div className="bg-white p-1 rounded-xl shadow-sm border border-teal-50">
               <img
-                src="/images/medicallogo.jpg"
+                src="images/medicallogo.jpg"
                 alt="Doctor Logo"
                 className="w-20 h-20 object-contain rounded-lg"
               />
@@ -132,7 +132,7 @@ const Header = ({ isSticky = true }) => {
             >
               <div className="relative">
                 <img
-                  src="/images/m_002.png"
+                  src="images/m_002.png"
                   alt="User Avatar"
                   className="w-10 h-10 md:w-11 md:h-11 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#049746] to-[#00CED1] p-0.5"
                 />
@@ -163,7 +163,7 @@ const Header = ({ isSticky = true }) => {
                   <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
                   <div className="relative z-10 flex flex-col items-center">
                     <img
-                      src="/images/m_002.png"
+                      src="images/m_002.png"
                       alt="User Avatar"
                       className="w-20 h-20 rounded-full border-4 border-white/20 shadow-xl mb-3"
                     />

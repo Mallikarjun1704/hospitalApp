@@ -214,7 +214,7 @@ export default function AddPatient() {
   const HospitalLetterHead = () => (
     <div className="flex justify-between items-center border-b-2 border-green-800 pb-2 mb-4">
       <div className="flex-shrink-0">
-        <img src="/images/medicallogo.jpg" alt="Doctor Logo" className="w-16" />
+        <img src="images/medicallogo.jpg" alt="Doctor Logo" className="w-16" />
       </div>
       <div className="flex-grow text-center px-4">
         <h2 className="text-2xl font-bold">PRASHANTH GENERAL HOSPITAL</h2>

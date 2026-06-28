@@ -47,7 +47,7 @@ const Login = ({ onLogin, onForgotPassword }) => {
   return (
     <div
       className="flex justify-center items-center min-h-screen bg-cover bg-center w-full h-full relative"
-      style={{ backgroundImage: "url('/images/backImage.jpg')" }}
+      style={{ backgroundImage: "url('images/backImage.jpg')" }}
     >
       {/* Dark Gradient Overlay for focus */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#049746]/40 to-[#00CED1]/30 backdrop-blur-[2px]"></div>
@@ -62,7 +62,7 @@ const Login = ({ onLogin, onForgotPassword }) => {
           <div className="flex flex-col items-center mb-8">
             <div className="bg-white p-2 rounded-2xl shadow-inner border border-teal-50 mb-4">
               <img
-                src="/images/medicallogo.jpg"
+                src="images/medicallogo.jpg"
                 alt="Hospital Logo"
                 className="w-20 h-20 object-contain rounded-xl"
               />
