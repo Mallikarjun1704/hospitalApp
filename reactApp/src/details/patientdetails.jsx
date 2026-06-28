@@ -12,7 +12,8 @@ const PatientDetail = ({ type: propType }) => {
   const [patients, setPatients] = useState([]);
   const [querySearch, setQuerySearch] = useState('');
 
-  const type = propType || (window.location.pathname.includes('opd') ? 'OPD' : 'IPD');
+  const isOpdRoute = window.location.pathname.includes('opd') || window.location.hash.includes('opd');
+  const type = propType || (isOpdRoute ? 'OPD' : 'IPD');
 
   const fetchPatients = useCallback(async () => {
     try {

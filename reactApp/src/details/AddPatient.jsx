@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getAuthHeaders } from "../utils/api";
 import Header from "../common/header";
 import { jsPDF } from "jspdf";
@@ -106,7 +106,15 @@ export default function AddPatient() {
     } catch (err) { alert(err.message || 'Save failed'); }
   };
 
+  const initializedPathRef = useRef("");
+
   useEffect(() => {
+    const currentPath = location.pathname + location.search + (location.state?.patient?._id || "");
+    if (initializedPathRef.current === currentPath) {
+      return;
+    }
+    initializedPathRef.current = currentPath;
+
     const handleEditInEffect = (patient) => {
       setEditingId(patient._id);
       setFormData(prev => ({ ...prev, ...patient, date: patient.date ? new Date(patient.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }));
@@ -114,7 +122,8 @@ export default function AddPatient() {
     };
 
     const incomingPatient = location?.state?.patient;
-    const incomingFormType = location?.state?.formType || (window.location.pathname.includes('add-opd') ? 'OPD' : 'IPD');
+    const isOpdRoute = window.location.pathname.includes('add-opd') || window.location.hash.includes('add-opd');
+    const incomingFormType = location?.state?.formType || (isOpdRoute ? 'OPD' : 'IPD');
 
     if (incomingPatient) {
       handleEditInEffect(incomingPatient);
