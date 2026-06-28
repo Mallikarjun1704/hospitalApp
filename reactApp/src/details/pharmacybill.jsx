@@ -158,8 +158,7 @@ const Medical = () => {
       const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); return alert('Failed to save bill: ' + (e.error || e.message || res.statusText)); }
       alert('Saved pharmacy bill and sale');
-      // navigate to medical bill table for records
-      window.location.href = '/details/medical-bill/table';
+      navigate('/details/medical-bill/table');
     } catch (err) { alert('Error saving: ' + err.message); }
   };
 

@@ -73,8 +73,8 @@ const Header = ({ isSticky = true }) => {
     localStorage.removeItem('userId');
     localStorage.removeItem('userName');
     setUser(null);
-    setIsOpen(false);
-    window.location.href = '/';
+    window.location.hash = '#/';
+    window.location.reload();
   };
 
   return (
