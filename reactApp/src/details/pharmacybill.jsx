@@ -132,13 +132,22 @@ const Medical = () => {
       const saleRes = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/sale/sales`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ items }) });
       if (!saleRes.ok) { const e = await saleRes.json(); return alert('Failed to record sale: ' + (e.error || e.message || saleRes.statusText)); }
 
+      // Convert locale date strings (DD/MM/YYYY) to ISO (YYYY-MM-DD) for the backend
+      const toISODate = (val) => {
+        if (!val) return undefined;
+        if (String(val).match(/^\d{4}-\d{2}-\d{2}$/)) return val;
+        const m = String(val).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+        return val;
+      };
+
       // Then create a medical bill record but skip stock decrement there (since sale already decremented)
       const payload = {
         contact: data.contact,
         name: data.name,
         ipdNumber: data.ipdNumber,
-        admissionDate: data.admissionDate,
-        dischargeDate: data.dischargeDate,
+        admissionDate: toISODate(data.admissionDate),
+        dischargeDate: toISODate(data.dischargeDate),
         services: data.services.filter(s => (s.service && s.service.trim() !== '') || (s.uniqueCode && s.uniqueCode.trim() !== '')).map(s => ({
           medicineId: s.medicineId,
           uniqueCode: s.uniqueCode || '',

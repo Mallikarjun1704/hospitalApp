@@ -12,11 +12,35 @@ const requireAdmin = (req, res, next) => {
 };
 
 
+// helper to parse date strings safely. Accepts ISO, JS date strings, timestamps
+// and also common `DD/MM/YYYY` format used by the frontend.
+const parseDateSafe = (val) => {
+  if (!val) return undefined;
+  if (val instanceof Date) return isNaN(val.getTime()) ? undefined : val;
+  if (typeof val === 'string') {
+    const dmY = val.trim();
+    const ddmmyyyy = dmY.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddmmyyyy) {
+      const d = ddmmyyyy[1].padStart(2, '0');
+      const m = ddmmyyyy[2].padStart(2, '0');
+      const y = ddmmyyyy[3];
+      const iso = `${y}-${m}-${d}`;
+      const dateObj = new Date(iso);
+      return isNaN(dateObj.getTime()) ? undefined : dateObj;
+    }
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? undefined : d;
+};
+
 // Create medical bill and decrement medicine stock
 router.post('/', async (req, res) => {
   try {
-    const { contact, name, ipdNumber, admissionDate, dischargeDate, services, total, netPayable, advancePayment } = req.body;
+    const { contact, name, ipdNumber, admissionDate: admissionDateRaw, dischargeDate: dischargeDateRaw, services, total, netPayable, advancePayment } = req.body;
     if (!contact || !name) return res.status(400).json({ error: 'contact and name are required' });
+
+    const admissionDate = parseDateSafe(admissionDateRaw);
+    const dischargeDate = parseDateSafe(dischargeDateRaw);
 
     // For sale flows (non-pharmacy-bill) decrement stock unless caller sets skipStock
     if (!req.body.skipStock && Array.isArray(services)) {
@@ -34,7 +58,7 @@ router.post('/', async (req, res) => {
 
     // (stock decrement already handled above per-service)
 
-    const bill = new MedicalBill({ contact, name, ipdNumber, admissionDate: admissionDate ? new Date(admissionDate) : undefined, dischargeDate: dischargeDate ? new Date(dischargeDate) : undefined, services, total, netPayable, advancePayment: Number(advancePayment) || 0 });
+    const bill = new MedicalBill({ contact, name, ipdNumber, admissionDate, dischargeDate, services, total, netPayable, advancePayment: Number(advancePayment) || 0 });
     await bill.save();
     res.status(201).json(bill);
   } catch (err) {
@@ -68,6 +92,17 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const update = req.body;
+    // Normalize incoming date fields to avoid Mongoose cast errors
+    if (update.admissionDate !== undefined) {
+      const parsed = parseDateSafe(update.admissionDate);
+      if (parsed === undefined) delete update.admissionDate;
+      else update.admissionDate = parsed;
+    }
+    if (update.dischargeDate !== undefined) {
+      const parsed = parseDateSafe(update.dischargeDate);
+      if (parsed === undefined) delete update.dischargeDate;
+      else update.dischargeDate = parsed;
+    }
     const bill = await MedicalBill.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!bill) return res.status(404).json({ error: 'Bill not found' });
     res.json(bill);
