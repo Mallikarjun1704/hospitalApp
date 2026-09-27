@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from "../common/header";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 import { useNavigate, useParams } from 'react-router-dom';
 
 export default function AddMedicine() {
@@ -8,6 +8,7 @@ export default function AddMedicine() {
   const { id } = useParams();
   const isEditing = !!id;
   const isAdmin = localStorage.getItem('userType') === 'admin';
+  const API_URL = getApiBaseUrl();
 
   const [formData, setFormData] = useState({
     uniqueCode: '',
@@ -23,7 +24,6 @@ export default function AddMedicine() {
 
   useEffect(() => {
     if (isEditing) {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
       const fetchMed = async () => {
         try {
           const res = await fetch(`${API_URL}/api/v1/medicine/medicines/${id}`, { headers: getAuthHeaders() });
@@ -50,7 +50,6 @@ export default function AddMedicine() {
       fetchMed();
     } else {
       // Generate new unique code for new medicines
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
       const fetchMedicinesAndGenCode = async () => {
         try {
           const res = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
@@ -69,7 +68,7 @@ export default function AddMedicine() {
       };
       fetchMedicinesAndGenCode();
     }
-  }, [id, isEditing]);
+  }, [id, isEditing, API_URL]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -81,7 +80,6 @@ export default function AddMedicine() {
 
   const handleSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
     const payload = {
       code: formData.uniqueCode,
       name: formData.name,

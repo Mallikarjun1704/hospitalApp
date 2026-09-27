@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import Header from '../common/header';
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 
 const AddLabTest = () => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [price, setPrice] = useState(0);
+  const API_URL = getApiBaseUrl();
   
   const navigate = useNavigate();
 
   const save = async () => {
     if (!code || !name) return alert('Code and name required');
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labtests`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ code, name, price: Number(price) || 0 }) });
+      const res = await fetch(`${API_URL}/api/v1/labtests`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ code, name, price: Number(price) || 0 }) });
       if (!res.ok) { const e = await res.json(); return alert('Failed: ' + (e.error || res.statusText)); }
       alert('Saved');
       navigate('/details/lab-bill/table');

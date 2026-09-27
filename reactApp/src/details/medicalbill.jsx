@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { generateBillPDF } from '../utils/pdfGenerator';
 import 'tailwindcss/tailwind.css';
 import Header from '../common/header';
 import { useNavigate, useLocation } from "react-router-dom";
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
 
 const Medical = () => {
+  const API_URL = getApiBaseUrl();
   const [data, setData] = useState({
     name: '',
     contact: '',
@@ -39,7 +39,7 @@ const Medical = () => {
     const fetchMeds = async () => {
       try {
         // fetch list of medicines (use the explicit /medicines endpoint)
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
         if (!res.ok) {
           const txt = await res.text();
           console.error('Failed fetching medicines:', res.status, txt);
@@ -50,14 +50,14 @@ const Medical = () => {
       } catch (err) { console.error('Error fetching medicines', err); }
     };
     fetchMeds();
-  }, []);
+  }, [API_URL]);
 
   const loadBill = React.useCallback(async (id) => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills/${id}`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_URL}/api/v1/medicalbills/${id}`, { headers: getAuthHeaders() });
       if (!res.ok) return;
       const bill = await res.json();
-      const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
+      const patientResp = bill.contact ? await fetch(`${API_URL}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
       let patient = null;
       if (patientResp && patientResp.ok) patient = await patientResp.json();
 
@@ -88,7 +88,7 @@ const Medical = () => {
         netPayable: bill.netPayable || 0,
       });
     } catch (err) { /* ignore */ }
-  }, []);
+  }, [API_URL]);
 
   useEffect(() => {
     // load for editing if editId present
@@ -103,7 +103,7 @@ const Medical = () => {
     if (!val) return; // don't lookup empty
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_URL}/api/v1/patients/filter?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const p = await res.json();
         if (p) {
@@ -112,7 +112,7 @@ const Medical = () => {
       } catch (e) { /* ignore */ }
     }, 400);
     return () => clearTimeout(t);
-  }, [data.contact]);
+  }, [data.contact, API_URL]);
 
   const handleInputChange = (field, value) => {
     setData({ ...data, [field]: value });
@@ -222,6 +222,11 @@ const Medical = () => {
   const saveBill = async () => {
     try {
       if (!data.contact || !data.name) return alert('Name and contact are required');
+
+      if (!window.confirm(isEdit ? 'Are you sure you want to update this medical bill and download the PDF?' : 'Are you sure you want to save this medical bill and download the PDF?')) {
+        return;
+      }
+
       const toISODate = (val) => {
         if (!val) return undefined;
         if (String(val).match(/^\d{4}-\d{2}-\d{2}$/)) return val;
@@ -254,16 +259,24 @@ const Medical = () => {
       // If editing an existing bill, do PUT to update
       if (location && location.state && location.state.editId) {
         const id = location.state.editId;
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+        const res = await fetch(`${API_URL}/api/v1/medicalbills/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(payload) });
         if (!res.ok) { const err = await res.json(); return alert('Failed to update: ' + (err.error || res.statusText)); }
-        alert('Updated medical bill');
+        
+        // Immediately generate and download the PDF
+        await generatePDF();
+
+        alert('Updated medical bill successfully');
         navigate('/details/medical-bill/table');
         return;
       }
 
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+      const res = await fetch(`${API_URL}/api/v1/medicalbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
       if (!res.ok) { const err = await res.json(); return alert('Failed to save: ' + (err.error || res.statusText)); }
-      alert('Saved medical bill');
+
+      // Immediately generate and download the PDF
+      await generatePDF();
+
+      alert('Saved medical bill successfully');
       navigate('/details/medical-bill/table');
     } catch (err) { alert('Error saving: ' + err.message); }
   };
@@ -276,93 +289,48 @@ const Medical = () => {
 
 
   const generatePDF = async () => {
-    const billContent = document.querySelector('#bill');
-    const noPrintElements = document.querySelectorAll('.no-print');
-    const allInputs = billContent.querySelectorAll('textarea, input, select');
+    const validServices = data.services.filter(s => (s.service && s.service.trim() !== '') || (s.uniqueCode && s.uniqueCode.trim() !== ''));
 
-    // Create a temporary label for the copy type
-    const copyLabel = document.createElement('div');
-    copyLabel.style.textAlign = 'right';
-    copyLabel.style.fontWeight = 'bold';
-    copyLabel.style.padding = '5px 20px';
-    copyLabel.style.fontSize = '16px';
-    copyLabel.style.color = '#333';
-    billContent.prepend(copyLabel);
-
-    // Store original styles
-    const originalStyles = [];
-    allInputs.forEach(el => {
-      originalStyles.push({
-        el,
-        height: el.style.height,
-        overflow: el.style.overflow
-      });
+    await generateBillPDF({
+      title: 'Pharmacy Cash Bill',
+      fileName: 'medical-bill',
+      patientFields: [
+        { label: 'Name', value: data.name },
+        { label: 'Contact', value: data.contact },
+        { label: 'Age', value: data.age },
+        { label: 'Date of Admission', value: data.admissionDate },
+        { label: 'Place', value: data.place },
+        { label: 'Patient ID', value: data.ipdNumber || patientIdCounter },
+        { label: 'Date of Discharge', value: data.dischargeDate },
+      ],
+      columns: [
+        { header: 'No', key: 'no', width: 12 },
+        { header: 'Unique Code', key: 'uniqueCode', width: 28 },
+        { header: 'Name', key: 'name' },
+        { header: 'Price', key: 'price', width: 22 },
+        { header: 'Qty', key: 'quantity', width: 15 },
+        { header: 'CGST(%)', key: 'cgst', width: 18 },
+        { header: 'SGST(%)', key: 'sgst', width: 18 },
+        { header: 'Total', key: 'total', width: 25 },
+      ],
+      rows: validServices.map(s => ({
+        no: String(s.no),
+        uniqueCode: s.uniqueCode || '',
+        name: s.name || '',
+        price: String(s.price),
+        quantity: String(s.quantity),
+        cgst: String(s.cgst || 0),
+        sgst: String(s.sgst || 0),
+        total: String(s.total),
+      })),
+      totals: [
+        { label: 'Total CGST:', value: String(data.totalCgst || 0) },
+        { label: 'Total SGST:', value: String(data.totalSgst || 0) },
+        { label: 'Total:', value: String(data.total || 0) },
+        { label: 'Advance Payment:', value: String(data.advancePayment || 0) },
+        { label: 'Net Amount Payable:', value: String(data.netPayable || 0) },
+      ],
     });
-
-    // Hide no-print elements
-    noPrintElements.forEach((el) => {
-      el.dataset.origDisplay = el.style.display;
-      el.style.display = 'none';
-    });
-
-    try {
-      // Expand inputs
-      allInputs.forEach(el => {
-        el.style.height = 'auto';
-        el.style.height = (el.scrollHeight + 2) + 'px';
-        el.style.overflow = 'visible';
-      });
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const captureCopy = async (label) => {
-        copyLabel.textContent = label;
-        const canvas = await html2canvas(billContent, {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          windowWidth: billContent.scrollWidth,
-        });
-        return canvas.toDataURL('image/png', 1.0);
-      };
-
-      // Patient Copy
-      const imgData1 = await captureCopy('PATIENT COPY');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgProps = pdf.getImageProperties(imgData1);
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-      // Hospital Copy
-      pdf.addPage();
-      const imgData2 = await captureCopy('HOSPITAL COPY');
-      pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-      pdf.save(`medical-bill-${Date.now()}.pdf`);
-    } catch (err) {
-      console.error('PDF generation failed:', err);
-      alert('Failed to generate PDF');
-    } finally {
-      // Remove temporary label
-      if (copyLabel.parentNode) {
-        copyLabel.parentNode.removeChild(copyLabel);
-      }
-
-      // Restore styles
-      originalStyles.forEach(item => {
-        item.el.style.height = item.height;
-        item.el.style.overflow = item.overflow;
-      });
-
-      // Restore no-print elements
-      noPrintElements.forEach((el) => {
-        el.style.display = el.dataset.origDisplay || '';
-      });
-    }
 
     const newPatientId = patientIdCounter + 1;
     setPatientIdCounter(newPatientId);
@@ -533,12 +501,6 @@ const Medical = () => {
           className="px-8 py-2 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 font-medium shadow-md no-print ml-4"
         >
           Remove Last Row
-        </button>
-        <button
-          onClick={generatePDF}
-          className="px-8 py-2 bg-indigo-600 text-white rounded btn-tactile hover:bg-indigo-700 font-medium shadow-md no-print ml-4"
-        >
-          Download PDF
         </button>
         <button
           onClick={handleGoBack}

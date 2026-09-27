@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Header from "../common/header";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 import { useNavigate } from 'react-router-dom';
 
 export default function MedicineInventory() {
   const navigate = useNavigate();
+  const API_URL = getApiBaseUrl();
   const [medicines, setMedicines] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,7 +15,6 @@ export default function MedicineInventory() {
 
   useEffect(() => {
     // fetch medicines from backend
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
     const fetchMedicines = async () => {
       try {
         const res = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
@@ -25,7 +25,7 @@ export default function MedicineInventory() {
       }
     };
     fetchMedicines();
-  }, []); // fetch once on mount; avoids repeated fetching loop
+  }, [API_URL]); // fetch on mount and if API_URL changes
 
   const handleAddMedicine = () => {
     navigate('/add-medicine');
@@ -37,7 +37,6 @@ export default function MedicineInventory() {
 
   const handleDelete = (medicineId) => {
     if (!window.confirm('Are you sure you want to delete this medicine?')) return;
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
     fetch(`${API_URL}/api/v1/medicine/medicines/${medicineId}`, { method: 'DELETE', headers: getAuthHeaders() }).then(async (res) => {
       if (!res.ok) {
         const err = await res.json();

@@ -14,7 +14,7 @@ const requireAdmin = (req, res, next) => {
 // Create patient
 router.post('/', async (req, res) => {
   try {
-    const { name, address, age, gender, ipdNumber, contact, date, consultDoctor, personalHistory, chiefComplaints, historyPresenting, previousHistory, allergicHistory, gcs, temp, pulse, bp, spo2, rbs, generalPhysicalExam, cvs, rs, pa, cns, provisionalDiagnosis, pallor, icterus, clubbing, cyanosis, edema, formType, amount } = req.body;
+    const { name, address, age, gender, ipdNumber, contact, date, time, modeOfPayment, consultDoctor, personalHistory, chiefComplaints, historyPresenting, previousHistory, allergicHistory, gcs, temp, pulse, bp, spo2, rbs, generalPhysicalExam, cvs, rs, pa, cns, provisionalDiagnosis, pallor, icterus, clubbing, cyanosis, edema, formType, amount } = req.body;
 
     if (!contact) return res.status(400).json({ error: 'Contact (phone) is required' });
     if (!name) return res.status(400).json({ error: 'Name is required' });
@@ -34,6 +34,8 @@ router.post('/', async (req, res) => {
       ipdNumber,
       contact,
       date,
+      time,
+      modeOfPayment: modeOfPayment || 'CASH',
       consultDoctor,
       personalHistory,
       chiefComplaints,

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getApiBaseUrl } from "../utils/api";
 
 const ResetPassword = ({ onBackToLogin }) => {
   const [email, setEmail] = useState("");
@@ -9,7 +10,7 @@ const ResetPassword = ({ onBackToLogin }) => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
+  const API_URL = getApiBaseUrl();
 
   const handleReset = async () => {
     setError("");

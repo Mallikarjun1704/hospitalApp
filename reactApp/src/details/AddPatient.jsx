@@ -1,14 +1,32 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 import Header from "../common/header";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
+import { generatePatientPDF } from "../utils/pdfGenerator";
 import "tailwindcss/tailwind.css";
 import { useNavigate, useLocation } from "react-router-dom";
 
-const doctors = ["Dr. Channakeshava K B", "Dr. Mahesh Kumar", "Dr. Priya Singh", "Dr. Rajesh Verma", "Dr. Anita Desai"];
+const DEFAULT_DOCTORS = [
+  "Dr. Channakeshava K B",
+  "Dr. Mahesh Kumar",
+  "Dr. Priya Singh",
+  "Dr. Rajesh Verma",
+  "Dr. Anita Desai"
+];
+
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
 
 export default function AddPatient() {
+  const [doctorList, setDoctorList] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("hospital_custom_doctors") || "[]");
+      return Array.from(new Set([...DEFAULT_DOCTORS, ...stored]));
+    } catch (e) {
+      return DEFAULT_DOCTORS;
+    }
+  });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -17,8 +35,10 @@ export default function AddPatient() {
     gender: "",
     ipdNumber: "",
     contact: "",
-    consultDoctor: doctors[0],
+    consultDoctor: DEFAULT_DOCTORS[0],
     date: new Date().toISOString().slice(0, 10),
+    time: getCurrentTime(),
+    modeOfPayment: "CASH",
     chiefComplaints: "",
     historyPresenting: "",
     previousHistory: "",
@@ -46,24 +66,83 @@ export default function AddPatient() {
   });
 
   const [editingId, setEditingId] = useState(null);
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
+  const API_URL = getApiBaseUrl();
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = localStorage.getItem('userType') === 'admin';
 
-  const getNextNumber = (type) => {
-    const key = type === 'IPD' ? "lastIpdNumber" : "lastOpdNumber";
-    const lastNum = localStorage.getItem(key) || `${type}-1000`;
-    const nextNumber = parseInt(lastNum.split("-")[1]) + 1;
-    return `${type}-${nextNumber}`;
+  // Helper to extract numeric sequence from string like "IPD-001" or "1001"
+  const parseSeqNumber = (str) => {
+    if (!str) return 0;
+    const match = str.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
   };
 
+  const formatSeqNumber = (type, seq) => {
+    return `${type}-${String(seq).padStart(3, '0')}`;
+  };
+
+  const getNextNumber = (type, existingList = []) => {
+    let maxSeq = 0;
+    if (Array.isArray(existingList)) {
+      existingList.forEach(p => {
+        const pType = p.formType || (p.ipdNumber && p.ipdNumber.startsWith('OPD-') ? 'OPD' : 'IPD');
+        if (pType === type && p.ipdNumber) {
+          const n = parseSeqNumber(p.ipdNumber);
+          if (n > maxSeq) maxSeq = n;
+        }
+      });
+    }
+
+    const key = type === 'IPD' ? "lastIpdNumber" : "lastOpdNumber";
+    const lastStored = localStorage.getItem(key);
+    if (lastStored) {
+      const n = parseSeqNumber(lastStored);
+      if (n > maxSeq) maxSeq = n;
+    }
+
+    const nextSeq = maxSeq === 0 ? 1 : maxSeq + 1;
+    return formatSeqNumber(type, nextSeq);
+  };
+
+  // Fetch doctors and sequence from backend on mount
   useEffect(() => {
-    const newIpdNumber = getNextNumber('IPD');
-    setFormData(prev => ({ ...prev, ipdNumber: newIpdNumber }));
-    localStorage.setItem("lastIpdNumber", newIpdNumber);
+    const fetchExisting = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/patients`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          const patients = data.patients || data || [];
+
+          // Collect unique doctors
+          const fetchedDoctors = patients
+            .map(p => p.consultDoctor)
+            .filter(d => typeof d === 'string' && d.trim().length > 0);
+
+          if (fetchedDoctors.length > 0) {
+            setDoctorList(prev => Array.from(new Set([...prev, ...fetchedDoctors])));
+          }
+
+          // If adding new, calculate next number
+          if (!editingId && !location.state?.patient) {
+            const isOpdRoute = window.location.pathname.includes('add-opd') || window.location.hash.includes('add-opd');
+            const targetType = location?.state?.formType || (isOpdRoute ? 'OPD' : 'IPD');
+            const newNum = getNextNumber(targetType, patients);
+            setFormData(prev => ({
+              ...prev,
+              formType: targetType,
+              ipdNumber: newNum
+            }));
+            localStorage.setItem(targetType === 'IPD' ? "lastIpdNumber" : "lastOpdNumber", newNum);
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch existing patients for sequence/doctors", e);
+      }
+    };
+    fetchExisting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [API_URL]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -89,21 +168,86 @@ export default function AddPatient() {
   const resetForm = () => {
     const newNumber = getNextNumber('IPD');
     localStorage.setItem("lastIpdNumber", newNumber);
-    setFormData({ ...formData, name: '', address: '', age: '', gender: '', ipdNumber: newNumber, contact: '', chiefComplaints: '', historyPresenting: '', previousHistory: '', personalHistory: '', allergicHistory: '', gcs: '', temp: '', pulse: '', bp: '', spo2: '', rbs: '', generalPhysicalExam: '', cvs: '', rs: '', pa: '', cns: '', provisionalDiagnosis: '', pallor: '', icterus: '', clubbing: '', cyanosis: '', edema: '', formType: 'IPD', amount: 0 });
+    setFormData({
+      name: '',
+      address: '',
+      age: '',
+      gender: '',
+      ipdNumber: newNumber,
+      contact: '',
+      chiefComplaints: '',
+      historyPresenting: '',
+      previousHistory: '',
+      personalHistory: '',
+      allergicHistory: '',
+      gcs: '',
+      temp: '',
+      pulse: '',
+      bp: '',
+      spo2: '',
+      rbs: '',
+      generalPhysicalExam: '',
+      cvs: '',
+      rs: '',
+      pa: '',
+      cns: '',
+      provisionalDiagnosis: '',
+      pallor: '',
+      icterus: '',
+      clubbing: '',
+      cyanosis: '',
+      edema: '',
+      formType: 'IPD',
+      amount: 0,
+      modeOfPayment: 'CASH',
+      date: new Date().toISOString().slice(0, 10),
+      time: getCurrentTime(),
+      consultDoctor: doctorList[0] || DEFAULT_DOCTORS[0]
+    });
     setEditingId(null);
   };
 
   const savePatient = async () => {
+    const trimmedDoctor = formData.consultDoctor ? formData.consultDoctor.trim() : "";
+    
+    // Dynamically append new custom doctor name if not in list
+    if (trimmedDoctor && !doctorList.includes(trimmedDoctor)) {
+      const updatedList = Array.from(new Set([...doctorList, trimmedDoctor]));
+      setDoctorList(updatedList);
+      try {
+        const customOnly = updatedList.filter(d => !DEFAULT_DOCTORS.includes(d));
+        localStorage.setItem("hospital_custom_doctors", JSON.stringify(customOnly));
+      } catch (e) {
+        console.warn("Failed to persist custom doctors", e);
+      }
+    }
+
     const method = editingId ? 'PUT' : 'POST';
     const url = editingId ? `${API_URL}/api/v1/patients/${editingId}` : `${API_URL}/api/v1/patients`;
     try {
-      const res = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(formData) });
-      if (!res.ok) throw new Error('Failed to save');
+      const payload = {
+        ...formData,
+        consultDoctor: trimmedDoctor
+      };
+      const res = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(payload) });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to save');
+      }
       await res.json();
+      
+      // Update stored last sequence
+      if (formData.ipdNumber) {
+        const key = formData.formType === 'OPD' ? "lastOpdNumber" : "lastIpdNumber";
+        localStorage.setItem(key, formData.ipdNumber);
+      }
+
       resetForm();
-      alert(editingId ? 'Patient updated' : 'Patient saved');
+      alert(editingId ? 'Patient updated successfully' : 'Patient saved successfully');
       navigate(formData.formType === 'OPD' ? '/details/opd-patients' : '/details/patient-details');
-    } catch (err) { alert(err.message || 'Save failed'); }
+    } catch (err) {
+      alert(err.message || 'Save failed');
+    }
   };
 
   const initializedPathRef = useRef("");
@@ -117,7 +261,18 @@ export default function AddPatient() {
 
     const handleEditInEffect = (patient) => {
       setEditingId(patient._id);
-      setFormData(prev => ({ ...prev, ...patient, date: patient.date ? new Date(patient.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10) }));
+      setFormData(prev => ({
+        ...prev,
+        ...patient,
+        date: patient.date ? new Date(patient.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        time: patient.time || getCurrentTime(),
+        modeOfPayment: patient.modeOfPayment || "CASH"
+      }));
+
+      // Add doctor to list if not already present
+      if (patient.consultDoctor && !doctorList.includes(patient.consultDoctor)) {
+        setDoctorList(prevDocs => Array.from(new Set([...prevDocs, patient.consultDoctor])));
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -132,10 +287,13 @@ export default function AddPatient() {
       setFormData(prev => ({
         ...prev,
         formType: incomingFormType,
-        ipdNumber: newNumber
+        ipdNumber: newNumber,
+        time: getCurrentTime(),
+        date: new Date().toISOString().slice(0, 10)
       }));
       localStorage.setItem(incomingFormType === 'IPD' ? "lastIpdNumber" : "lastOpdNumber", newNumber);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
   const handleSubmit = (e) => {
@@ -144,79 +302,14 @@ export default function AddPatient() {
   };
 
   const generatePDF = async () => {
-    const allInputs = document.querySelectorAll('#bill textarea, #bill input, #bill select');
-    // Store original inline styles to revert later
-    allInputs.forEach(el => {
-      el.dataset.origHeight = el.style.height || '';
-      el.dataset.origOverflow = el.style.overflow || '';
-    });
-
-    const pages = [document.getElementById("pdf-page-1")];
-    if (formData.formType === 'IPD') {
-      const p2 = document.getElementById("pdf-page-2");
-      if (p2) {
-        document.getElementById("letter-head-2").style.display = "block";
-        pages.push(p2);
-      }
-    }
-
     try {
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-
-      for (let i = 0; i < pages.length; i++) {
-        const element = pages[i];
-        if (!element) continue;
-
-        const originalWidth = element.style.width;
-        // Lock width to standard A4 (prevents responsive grid shrinking issues later)
-        element.style.width = '210mm';
-        element.style.margin = '0 auto';
-
-        // Crucial: Calculate height AFTER setting width. If width shrinks, text line-wraps down.
-        // Expanding scrollHeight here prevents the text from cropping at the bottom.
-        const pageElements = element.querySelectorAll('textarea, input, select');
-        pageElements.forEach(el => {
-          el.style.height = 'auto';
-          el.style.height = (el.scrollHeight + 10) + 'px';
-          el.style.overflow = 'visible';
-        });
-
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          windowWidth: element.scrollWidth,
-          y: 0,
-          x: 0,
-          scrollY: 0
-        });
-
-        // Revert 
-        element.style.width = originalWidth;
-        element.style.margin = '';
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      }
-
-      pdf.save(`patient-${formData.name || 'unknown'}.pdf`);
-    } catch (err) {
-      alert('PDF generation failed: ' + err.message);
-    } finally {
-      // Revert text heights and layout styles
-      allInputs.forEach(el => {
-        el.style.height = el.dataset.origHeight;
-        el.style.overflow = el.dataset.origOverflow;
+      await generatePatientPDF({
+        formData,
+        fileName: `patient-${formData.name || 'details'}`,
       });
-
-      if (formData.formType === 'IPD') {
-        const lh2 = document.getElementById("letter-head-2");
-        if (lh2) lh2.style.display = "none";
-      }
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('PDF generation failed: ' + err.message);
     }
   };
 
@@ -228,7 +321,7 @@ export default function AddPatient() {
       <div className="flex-grow text-center px-4">
         <h2 className="text-2xl font-bold">PRASHANTH GENERAL HOSPITAL</h2>
         <p className="text-sm">
-          <b>SRS complex, Bhagyanagar circle, Kinnal road Koppal</b> Contact: 7204158789
+          <b>SRS complex, Bhagyanagar circle, Kinnal road Koppal</b> Contact: 8861464789
         </p>
       </div>
     </div>
@@ -247,9 +340,9 @@ export default function AddPatient() {
           {/* This letterhead belongs to the printed document */}
           <HospitalLetterHead />
 
-          <h3 className="text-center font-semibold mb-3 text-lg mt-2 uppercase text-green-900 border-b pb-2">{formData.formType === 'OPD' ? 'OPD FILE' : 'ADMISSION FILE (IPD) - PAGE 1'}</h3>
-
-
+          <h3 className="text-center font-semibold mb-3 text-lg mt-2 uppercase text-green-900 border-b pb-2">
+            {formData.formType === 'OPD' ? 'OPD FILE' : 'ADMISSION FILE (IPD) - PAGE 1'}
+          </h3>
 
           <div className="grid grid-cols-3 gap-4">
             {/* Left Column Page 1 */}
@@ -286,6 +379,21 @@ export default function AddPatient() {
 
             {/* Right Column Page 1 */}
             <div>
+              {/* Row 1: Repositioned IPD/OPD Number to the very first line */}
+              <div className="mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  {formData.formType === 'OPD' ? 'OPD Number :' : 'IPD Number :'}
+                </label>
+                <input
+                  name="ipdNumber"
+                  value={formData.ipdNumber}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded font-medium"
+                  placeholder={formData.formType === 'OPD' ? 'OPD-001' : 'IPD-001'}
+                />
+              </div>
+
+              {/* Row 2: Swapped Age & Gender */}
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Age :</label>
@@ -301,31 +409,73 @@ export default function AddPatient() {
                   </select>
                 </div>
               </div>
-              <div className="mb-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.formType === 'OPD' ? 'OPD Number :' : 'IPD Number :'}</label>
-                <input name="ipdNumber" value={formData.ipdNumber} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" placeholder={formData.formType === 'OPD' ? 'OPD-1001' : 'IPD-1001'} />
-              </div>
+
+              {/* Row 3: Contact */}
               <div className="mb-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Contact :</label>
                 <input name="contact" value={formData.contact} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" type="tel" />
               </div>
+
+              {/* Row 4: Amount and Mode of Payment */}
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Amount :</label>
-                  <input name="amount" value={formData.amount} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" type="number" />
+                  <input
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded no-spinner"
+                    type="number"
+                  />
                 </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Mode of Payment :</label>
+                  <select
+                    name="modeOfPayment"
+                    value={formData.modeOfPayment || "CASH"}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded"
+                  >
+                    <option value="CASH">CASH</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                    <option value="Net Banking">Net Banking</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 5: Date and Time */}
+              <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date :</label>
                   <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" />
                 </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Time :</label>
+                  <input type="time" name="time" value={formData.time || ""} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded" />
+                </div>
               </div>
+
+              {/* Row 6: Consultant Doctor - Editable Combobox */}
               <div className="mb-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Consultant Doctor :</label>
-                <select name="consultDoctor" value={formData.consultDoctor} onChange={handleChange} className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded">
-                  {doctors.map((doctor) => (
-                    <option key={doctor} value={doctor}>{doctor}</option>
+                <input
+                  list="doctor-options-list"
+                  name="consultDoctor"
+                  value={formData.consultDoctor || ""}
+                  onChange={handleChange}
+                  placeholder="Select or enter doctor name"
+                  className="w-full border border-gray-300 px-2 pt-2 pb-3 rounded"
+                />
+                <datalist id="doctor-options-list">
+                  {doctorList.map((doctor) => (
+                    <option key={doctor} value={doctor}>
+                      {doctor}
+                    </option>
                   ))}
-                </select>
+                </datalist>
               </div>
 
               <div className="border-t pt-2 mt-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 import { Link } from "react-router-dom";
 import GroupsIcon from "@mui/icons-material/Groups";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
@@ -116,7 +116,7 @@ const Card = () => {
   const [labDailyDetails, setLabDailyDetails] = useState({ totalAmount: 0, count: 0, items: [] });
   const [medicineStats, setMedicineStats] = useState({ totalStock: 0, lowStockCount: 0, lowStockItems: [], totalValue: 0, totalPurchaseCost: 0, totalItemTypes: 0 });
   const [showDailyModal, setShowDailyModal] = useState(false);
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
+  const API_URL = getApiBaseUrl();
 
   // Prefetch all counts on mount to avoid hardcoded values
   useEffect(() => {
@@ -466,7 +466,7 @@ const Card = () => {
                   <tbody>
                     {dailyDetails.patients.filter(p => p.formType === selectedCard.title.split(' ')[0]).map((p) => (
                       <tr key={p._id || `${p.ipdNumber}-${p.date}`} className="border-b">
-                        <td className="py-2">{new Date(p.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="py-2">{p.time || (p.date ? new Date(p.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-')}</td>
                         <td className="py-2">{p.name}</td>
                         <td className="py-2">{p.ipdNumber}</td>
                         <td className="py-2">{p.contact}</td>

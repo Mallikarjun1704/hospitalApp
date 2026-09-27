@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { generateBillPDF } from '../utils/pdfGenerator';
 import 'tailwindcss/tailwind.css';
 import Header from '../common/header';
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
 import { useNavigate, useLocation } from "react-router-dom";
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
-
 
 const initialServices = [{
   no: 1,
@@ -27,6 +23,7 @@ const formatDate = (date) => {
 const Cashbill = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const API_URL = getApiBaseUrl();
 
   const [data, setData] = useState({
     name: '',
@@ -91,7 +88,7 @@ const Cashbill = () => {
     } catch (err) {
       alert('Error loading bill: ' + err.message);
     }
-  }, []);
+  }, [API_URL]);
 
 
   useEffect(() => {
@@ -256,6 +253,11 @@ const Cashbill = () => {
       // Basic validation
       if (!data.contact || String(data.contact).trim().length < 3) return alert('Contact number is required');
       if (!data.name || String(data.name).trim().length < 1) return alert('Patient name is required');
+
+      if (!window.confirm(editingId ? 'Are you sure you want to update this cash bill and download the PDF?' : 'Are you sure you want to save this cash bill and download the PDF?')) {
+        return;
+      }
+
       const toISODate = (val) => {
         if (!val) return undefined;
         // convert DD/MM/YYYY to ISO YYYY-MM-DD which the server can parse reliably
@@ -296,6 +298,10 @@ const Cashbill = () => {
         alert('Failed to save bill: ' + (err.error || res.statusText));
         return;
       }
+
+      // Immediately generate and download the PDF
+      await generatePDF();
+
       alert(editingId ? 'Updated cash bill successfully' : 'Saved cash bill successfully');
       // Reset form
       setData({ ...data, services: initialServices, total: '', netPayable: '', advancePayment: 0 });
@@ -310,169 +316,47 @@ const Cashbill = () => {
 
 
   const generatePDF = async () => {
-    const billContent = document.querySelector('#bill');
-    const noPrintElements = document.querySelectorAll('.no-print');
-    const allInputs = billContent.querySelectorAll('textarea, input, select');
+    const validServices = data.services.filter(s => s.service && s.service.trim() !== '');
 
-    // Create a temporary label for the copy type
-    const copyLabel = document.createElement('div');
-    copyLabel.style.textAlign = 'right';
-    copyLabel.style.fontWeight = 'bold';
-    copyLabel.style.padding = '5px 20px';
-    copyLabel.style.fontSize = '16px';
-    copyLabel.style.color = '#333';
-
-    // Store original styles
-    const originalStyles = [];
-    allInputs.forEach(el => {
-      originalStyles.push({
-        el,
-        height: el.style.height,
-        overflow: el.style.overflow
-      });
+    await generateBillPDF({
+      title: 'Hospital Cash Bill',
+      fileName: 'cash-bill',
+      patientFields: [
+        { label: 'Name', value: data.name },
+        { label: 'Contact', value: data.contact },
+        { label: 'Age', value: data.age },
+        { label: 'Date of Admission', value: data.admissionDate },
+        { label: 'Place', value: data.place },
+        { label: 'Patient ID', value: data.patientId || patientIdCounter },
+        { label: 'Date of Discharge', value: data.dischargeDate },
+      ],
+      columns: [
+        { header: 'No', key: 'no', width: 12 },
+        { header: 'Service Provided', key: 'service' },
+        { header: 'Price', key: 'price', width: 22 },
+        { header: 'Qty', key: 'quantity', width: 15 },
+        { header: 'CGST(%)', key: 'cgst', width: 20 },
+        { header: 'SGST(%)', key: 'sgst', width: 20 },
+        { header: 'Total', key: 'total', width: 25 },
+      ],
+      rows: validServices.map(s => ({
+        no: String(s.no),
+        service: s.service,
+        price: String(s.price),
+        quantity: String(s.quantity),
+        cgst: String(s.cgst || 0),
+        sgst: String(s.sgst || 0),
+        total: String(s.total),
+      })),
+      totals: [
+        { label: 'Total CGST:', value: `Rs. ${Number(data.totalCgst || 0).toFixed(2)}` },
+        { label: 'Total SGST:', value: `Rs. ${Number(data.totalSgst || 0).toFixed(2)}` },
+        { label: 'Total:', value: `Rs. ${data.total || '0'}` },
+        { label: 'Advance Payment:', value: `Rs. ${data.advancePayment || '0'}` },
+        { label: 'Net Amount Payable:', value: `Rs. ${data.netPayable || '0'}` },
+      ],
+      copies: ['PATIENT COPY', 'HOSPITAL COPY'],
     });
-
-    // Temporarily disable sticky header so html2canvas can capture it properly
-    const header = billContent.querySelector('header');
-    let origHeaderPosition = '';
-    let origHeaderTop = '';
-    if (header) {
-      origHeaderPosition = header.style.position;
-      origHeaderTop = header.style.top;
-      header.style.position = 'relative';
-      header.style.top = 'auto';
-    }
-
-    // Lock width to A4 for consistent capture
-    const origWidth = billContent.style.width;
-    const origMaxWidth = billContent.style.maxWidth;
-    const origMargin = billContent.style.margin;
-    billContent.style.width = '210mm';
-    billContent.style.maxWidth = '210mm';
-    billContent.style.margin = '0 auto';
-
-    // Hide no-print elements (buttons, etc.)
-    noPrintElements.forEach((el) => {
-      el.dataset.origDisplay = el.style.display;
-      el.style.display = 'none';
-    });
-
-    // Insert copy label at top of bill
-    billContent.prepend(copyLabel);
-
-    try {
-      // Expand inputs so text isn't clipped
-      allInputs.forEach(el => {
-        el.style.height = 'auto';
-        el.style.height = (el.scrollHeight + 2) + 'px';
-        el.style.overflow = 'visible';
-      });
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfPageWidth = pdf.internal.pageSize.getWidth();   // 210mm
-      const pdfPageHeight = pdf.internal.pageSize.getHeight();  // 297mm
-
-      const captureCopy = async (label) => {
-        copyLabel.textContent = label;
-
-        const canvas = await html2canvas(billContent, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          windowWidth: billContent.scrollWidth,
-          scrollY: 0,
-          scrollX: 0,
-          y: 0,
-          x: 0,
-        });
-
-        return canvas;
-      };
-
-      const addCanvasToPdf = (pdf, canvas, startNewPage) => {
-        const imgData = canvas.toDataURL('image/png');
-        const canvasWidthMM = pdfPageWidth;
-        const canvasHeightMM = (canvas.height * pdfPageWidth) / canvas.width;
-
-        // If content fits in one page, add it directly
-        if (canvasHeightMM <= pdfPageHeight) {
-          if (startNewPage) pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, 0, canvasWidthMM, canvasHeightMM);
-        } else {
-          // Split across multiple pages
-          const pageCanvasHeight = (pdfPageHeight / canvasHeightMM) * canvas.height;
-          let remainingHeight = canvas.height;
-          let sourceY = 0;
-          let isFirst = true;
-
-          while (remainingHeight > 0) {
-            const sliceHeight = Math.min(pageCanvasHeight, remainingHeight);
-
-            // Create a slice canvas for this page
-            const pageCanvas = document.createElement('canvas');
-            pageCanvas.width = canvas.width;
-            pageCanvas.height = sliceHeight;
-            const ctx = pageCanvas.getContext('2d');
-            ctx.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
-
-            const pageImgData = pageCanvas.toDataURL('image/png');
-            const sliceHeightMM = (sliceHeight * pdfPageWidth) / canvas.width;
-
-            if (!isFirst || startNewPage) pdf.addPage();
-            pdf.addImage(pageImgData, 'PNG', 0, 0, pdfPageWidth, sliceHeightMM);
-
-            sourceY += sliceHeight;
-            remainingHeight -= sliceHeight;
-            isFirst = false;
-          }
-        }
-      };
-
-      // Patient Copy
-      const canvas1 = await captureCopy('PATIENT COPY');
-      addCanvasToPdf(pdf, canvas1, false);
-
-      // Hospital Copy
-      const canvas2 = await captureCopy('HOSPITAL COPY');
-      addCanvasToPdf(pdf, canvas2, true);
-
-      pdf.save(`cash-bill-${Date.now()}.pdf`);
-    } catch (err) {
-      console.error('PDF generation failed:', err);
-      alert('Failed to generate PDF');
-    } finally {
-      // Remove temporary label
-      if (copyLabel.parentNode) {
-        copyLabel.parentNode.removeChild(copyLabel);
-      }
-
-      // Restore header positioning
-      if (header) {
-        header.style.position = origHeaderPosition;
-        header.style.top = origHeaderTop;
-      }
-
-      // Restore width
-      billContent.style.width = origWidth;
-      billContent.style.maxWidth = origMaxWidth;
-      billContent.style.margin = origMargin;
-
-      // Restore input styles
-      originalStyles.forEach(item => {
-        item.el.style.height = item.height;
-        item.el.style.overflow = item.overflow;
-      });
-
-      // Restore no-print elements
-      noPrintElements.forEach((el) => {
-        el.style.display = el.dataset.origDisplay || '';
-      });
-    }
 
     const newPatientId = patientIdCounter + 1;
     setPatientIdCounter(newPatientId);
@@ -629,12 +513,6 @@ const Cashbill = () => {
               className="px-8 py-2 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 font-medium shadow-md no-print ml-4"
             >
               Remove Last Row
-            </button>
-            <button
-              onClick={generatePDF}
-              className="px-8 py-2 bg-indigo-600 text-white rounded btn-tactile hover:bg-indigo-700 font-medium shadow-md no-print ml-4"
-            >
-              Download PDF
             </button>
             <button
               onClick={handleGoBack}

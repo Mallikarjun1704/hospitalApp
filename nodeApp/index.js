@@ -20,15 +20,45 @@ const MedicalBillRoutes = require('./routes/medicalbill');
 const LabBillRoutes = require('./routes/labbill');
 const DischargeSummaryRoutes = require('./routes/dischargesummary');
 
+const seedAdminUser = require('./utils/dbSeed');
+
 dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Enable CORS for the React frontend (default origin http://localhost:3000)
-const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
-app.use(cors({ origin: corsOrigin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+// Dynamic CORS configuration allowing localhost, local network Wi-Fi IPs, and Electron origins
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Electron file://, curl, Postman)
+    if (!origin) return callback(null, true);
+
+    // Accept localhost, 127.0.0.1, or local LAN IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    const isLocalNetwork = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin);
+    
+    if (isLocalNetwork || process.env.CORS_ORIGIN === '*' || origin === process.env.CORS_ORIGIN) {
+      return callback(null, true);
+    }
+    // Default fallback to allow connection
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
 // Respond to preflight requests for all routes
-app.options('*', cors({ origin: corsOrigin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.options('*', cors(corsOptions));
+
+// Health check endpoint for connection validation / ping
+app.get('/api/v1/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'Hospital Backend API',
+    uptime: process.uptime()
+  });
+});
 
 // Public helper route to download a sample medicines CSV (authenticated users can also fetch this via API)
 app.get('/api/v1/medicine/medicines/sample-csv', (req, res) => {
@@ -39,9 +69,15 @@ app.get('/api/v1/medicine/medicines/sample-csv', (req, res) => {
   res.send(headers.join(',') + '\n' + sampleRow + '\n');
 });
 
-mongoose.connect(process.env.MONGO_BD)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+const mongoUri = process.env.MONGO_BD || process.env.MONGO_URI || 'mongodb://localhost:27017/userData';
+
+mongoose.connect(mongoUri)
+  .then(async () => {
+    console.log('[DATABASE] MongoDB connected successfully');
+    // Run administrator seeding check
+    await seedAdminUser();
+  })
+  .catch(err => console.error('[DATABASE] MongoDB connection error:', err));
 
 //Set-ExecutionPolicy RemoteSigned & Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 // Middleware to authenticate token

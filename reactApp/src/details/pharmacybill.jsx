@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
+import { generateBillPDF } from '../utils/pdfGenerator';
 import 'tailwindcss/tailwind.css';
 import Header from '../common/header';
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
 import { useNavigate } from "react-router-dom";
 
 const Medical = () => {
+  const API_URL = getApiBaseUrl();
   const [data, setData] = useState({
     name: '',
     contact: '',
@@ -35,7 +36,7 @@ const Medical = () => {
     // fetch medicines (use explicit /medicines endpoint)
     const fetchMeds = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_URL}/api/v1/medicine/medicines`, { headers: getAuthHeaders() });
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           console.error('Failed fetching medicines (pharmacy):', res.status, txt);
@@ -127,9 +128,13 @@ const Medical = () => {
     try {
       if (!data.name) return alert('Name is required');
 
+      if (!window.confirm('Are you sure you want to save this pharmacy bill and download the PDF?')) {
+        return;
+      }
+
       // First create a Sale to register pharmacy sale and decrement stock
       const items = data.services.map(s => ({ medicineId: s.medicineId, quantity: Number(s.quantity) || 0, unitPrice: Number(s.price) || 0 }));
-      const saleRes = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/sale/sales`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ items }) });
+      const saleRes = await fetch(`${API_URL}/api/v1/sale/sales`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ items }) });
       if (!saleRes.ok) { const e = await saleRes.json(); return alert('Failed to record sale: ' + (e.error || e.message || saleRes.statusText)); }
 
       // Convert locale date strings (DD/MM/YYYY) to ISO (YYYY-MM-DD) for the backend
@@ -164,9 +169,13 @@ const Medical = () => {
         skipStock: true
       };
 
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/medicalbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+      const res = await fetch(`${API_URL}/api/v1/medicalbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); return alert('Failed to save bill: ' + (e.error || e.message || res.statusText)); }
-      alert('Saved pharmacy bill and sale');
+
+      // Immediately generate and download the PDF
+      await generatePDF();
+
+      alert('Saved pharmacy bill and sale successfully');
       navigate('/details/medical-bill/table');
     } catch (err) { alert('Error saving: ' + err.message); }
   };
@@ -197,63 +206,56 @@ const Medical = () => {
   }
 
 
-  const generatePDF = () => {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'px',
-      format: 'a2',
-    });
+  const generatePDF = async () => {
+    const validServices = data.services.filter(s => (s.uniqueCode && s.uniqueCode.trim() !== '') || (s.service && s.service.trim() !== '') || (s.name && s.name.trim() !== '') || (s.price && parseFloat(s.price) > 0));
 
-    const billContent = document.querySelector('#bill');
-    const noPrintElements = document.querySelectorAll('.no-print');
-
-    noPrintElements.forEach((el) => {
-      el.style.display = 'none';
-    });
-
-    const inputs = billContent.querySelectorAll('input');
-    inputs.forEach((input) => {
-      const span = document.createElement('span');
-      span.textContent = input.value;
-      input.parentNode.replaceChild(span, input);
-    });
-
-    const selects = billContent.querySelectorAll('select');
-    selects.forEach((select) => {
-      const span = document.createElement('span');
-      span.textContent = select.options[select.selectedIndex].text;
-      select.parentNode.replaceChild(span, select);
-    });
-
-    doc.html(billContent, {
-      callback: (doc) => {
-        const pageWidth = doc.internal.pageSize.width;
-        const pageHeight = doc.internal.pageSize.height;
-
-        doc.html(billContent, {
-          x: 10,
-          y: pageHeight / 2,
-          callback: () => {
-            noPrintElements.forEach((el) => {
-              el.style.display = '';
-            });
-            doc.save('Medi-Mallikarjun-92.pdf');
-          },
-          width: pageWidth - 20,
-          windowWidth: pageWidth,
-        });
-      },
-      x: 10,
-      y: 10,
-      width: doc.internal.pageSize.width - 20,
-      windowWidth: doc.internal.pageSize.width,
+    await generateBillPDF({
+      title: 'Pharmacy Cash Bill',
+      fileName: 'pharmacy-bill',
+      patientFields: [
+        { label: 'Name', value: data.name },
+        { label: 'Contact', value: data.contact },
+        { label: 'Age', value: data.age },
+        { label: 'Date of Admission', value: data.admissionDate },
+        { label: 'Place', value: data.place },
+        { label: 'Patient ID', value: data.ipdNumber || patientIdCounter },
+        { label: 'Date of Discharge', value: data.dischargeDate },
+      ],
+      columns: [
+        { header: 'No', key: 'no', width: 10 },
+        { header: 'Unique Code', key: 'uniqueCode', width: 35 },
+        { header: 'Name', key: 'name', width: 45 },
+        { header: 'Price', key: 'price', width: 20 },
+        { header: 'Quantity', key: 'quantity', width: 20 },
+        { header: 'CGST (%)', key: 'cgst', width: 18 },
+        { header: 'SGST (%)', key: 'sgst', width: 18 },
+        { header: 'Total (Rs)', key: 'total', width: 24 },
+      ],
+      rows: validServices.map((s, idx) => ({
+        no: idx + 1,
+        uniqueCode: s.uniqueCode || '-',
+        name: s.name || s.service || '-',
+        price: s.price || '0',
+        quantity: s.quantity || '0',
+        cgst: s.cgst || '0',
+        sgst: s.sgst || '0',
+        total: s.total || '0',
+      })),
+      totals: [
+        { label: 'Total CGST:', value: `Rs. ${Number(data.totalCgst || 0).toFixed(2)}` },
+        { label: 'Total SGST:', value: `Rs. ${Number(data.totalSgst || 0).toFixed(2)}` },
+        { label: 'Total:', value: `Rs. ${data.total || '0'}` },
+        { label: 'Advance Payment:', value: data.advancePayment || 'nil' },
+        { label: 'Net Amount Payable:', value: `Rs. ${data.netPayable || '0'}` },
+      ],
+      copies: ['PATIENT COPY', 'HOSPITAL COPY'],
     });
 
     const newPatientId = patientIdCounter + 1;
     setPatientIdCounter(newPatientId);
     localStorage.setItem('patientIdCounter', newPatientId.toString());
 
-    setData({ ...data, ipdNumber: newPatientId });
+    setData(prev => ({ ...prev, ipdNumber: newPatientId }));
   };
 
   const navigate = useNavigate();
@@ -409,12 +411,6 @@ const Medical = () => {
           className="px-8 py-2 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 font-medium shadow-md no-print ml-4"
         >
           Remove Last Row
-        </button>
-        <button
-          onClick={generatePDF}
-          className="px-8 py-2 bg-indigo-600 text-white rounded btn-tactile hover:bg-indigo-700 font-medium shadow-md no-print ml-4"
-        >
-          Download PDF
         </button>
         <button
           onClick={saveBill}

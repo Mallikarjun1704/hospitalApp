@@ -3,12 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Header from "../common/header";
 import PatientTable from "../helper/patientTable";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 
 const PatientDetail = ({ type: propType }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
+  const API_URL = getApiBaseUrl();
   const [patients, setPatients] = useState([]);
   const [querySearch, setQuerySearch] = useState('');
 

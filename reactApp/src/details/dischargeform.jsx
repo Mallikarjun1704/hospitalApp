@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Header from "../common/header";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
+import { generateDischargePDF } from "../utils/pdfGenerator";
 import "tailwindcss/tailwind.css";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 
 const PatientForm = () => {
+  const apiUrl = getApiBaseUrl();
   const [formData, setFormData] = useState({
     patientName: "",
     contactNumber: "",
@@ -80,8 +80,6 @@ const PatientForm = () => {
     if (!val || val.length < 10) return;
     const t = setTimeout(async () => {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8889';
-        
         // 1. Try to find a saved discharge summary first
         const dsRes = await fetch(`${apiUrl}/api/v1/dischargesummaries/find?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
         if (dsRes.ok) {
@@ -136,91 +134,26 @@ const PatientForm = () => {
       } catch (e) { /* ignore */ }
     }, 500);
     return () => clearTimeout(t);
-  }, [formData.contactNumber]);
+  }, [formData.contactNumber, apiUrl]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const generatePDF = async () => {
-    const pages = [document.getElementById("pdf-page-1"), document.getElementById("pdf-page-2")];
-    const noPrintElements = document.querySelectorAll(".no-print");
-    const allInputs = document.querySelectorAll('#bill textarea, #bill input, #bill select');
-
-    // Store original styles
-    const originalStyles = [];
-    allInputs.forEach(el => {
-      originalStyles.push({
-        el,
-        height: el.style.height,
-        overflow: el.style.overflow
-      });
-    });
-
-    // Hide no-print elements
-    noPrintElements.forEach((el) => {
-      el.dataset.origDisplay = el.style.display;
-      el.style.display = "none";
-    });
-
     try {
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
+      await generateDischargePDF({
+        formData,
+        fileName: 'discharge-summary',
       });
 
-      for (let i = 0; i < pages.length; i++) {
-        const element = pages[i];
-        if (!element) continue;
-
-        // Expand inputs for THIS page
-        const pageInputs = element.querySelectorAll('textarea, input, select');
-        pageInputs.forEach(el => {
-          el.style.height = 'auto';
-          el.style.height = (el.scrollHeight + 5) + 'px';
-          el.style.overflow = 'visible';
-        });
-
-        // Brief wait
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        const canvas = await html2canvas(element, {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          windowWidth: element.scrollWidth,
-        });
-
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      }
-
-      pdf.save(`discharge-summary-${Date.now()}.pdf`);
-
+      const newPatientId = patientIdCounter + 1;
+      setPatientIdCounter(newPatientId);
+      localStorage.setItem("patientIdCounter", newPatientId.toString());
     } catch (err) {
       console.error('PDF generation failed:', err);
       alert('Failed to generate PDF');
-    } finally {
-      // Restore styles
-      originalStyles.forEach(item => {
-        item.el.style.height = item.height;
-        item.el.style.overflow = item.overflow;
-      });
-
-      // Restore no-print elements
-      noPrintElements.forEach((el) => {
-        el.style.display = el.dataset.origDisplay || "";
-      });
     }
-
-    const newPatientId = patientIdCounter + 1;
-    setPatientIdCounter(newPatientId);
-    localStorage.setItem("patientIdCounter", newPatientId.toString());
   };
 
   const navigate = useNavigate();
@@ -230,7 +163,6 @@ const PatientForm = () => {
 
   const handleSave = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8889';
       const res = await fetch(`${apiUrl}/api/v1/dischargesummaries`, {
         method: 'POST',
         headers: {

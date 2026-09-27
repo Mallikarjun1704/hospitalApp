@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Header from "../common/header";
-import { getAuthHeaders } from "../utils/api";
+import { getAuthHeaders, getApiBaseUrl } from "../utils/api";
 import { useNavigate } from "react-router-dom";
 
 const ManageUsers = () => {
@@ -18,7 +18,7 @@ const ManageUsers = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8889";
+  const API_URL = getApiBaseUrl();
 
   const fetchUsers = React.useCallback(async () => {
     setLoading(true);

@@ -9,7 +9,9 @@ const patientSchema = new mongoose.Schema({
   contact: { type: String, required: true },
   // Amount for billing — used to compute revenue totals
   amount: { type: Number, default: 0 },
+  modeOfPayment: { type: String, default: 'CASH' },
   date: { type: Date, default: Date.now },
+  time: { type: String },
   consultDoctor: { type: String },
   personalHistory: { type: String },
   chiefComplaints: { type: String },

@@ -120,3 +120,27 @@ Package everything into a single .exe installer.
 Once the build finishes, you will find the installer in: reactApp/dist/Hospital App Setup 0.1.0.exe (or similar name).
 
 You can now install this on your machine. When you launch the "Hospital App" from your desktop, both the frontend and the backend will start automatically.
+
+### Building for Production
+1. Build for Main System (Full App with Backend Server)
+npm run package:main
+
+Output: hospitalApp/dist/main/Hospital App Main Setup 0.1.0.exe
+
+
+2. Build for Client System (Frontend Only - No Backend)
+npm run package:client   
+
+Output: hospitalApp/dist/client/Hospital App Client Setup 0.1.0.exe
+
+
+3. Build for Both Systems (Main + Client)
+npm run package:all
+
+Output: hospitalApp/dist/main/ and hospitalApp/dist/client/
+
+
+### How the Secondary System Connects to the Main System
+1. Install and run Hospital App Main on the Main PC.
+2. Install and run Hospital App Client on any secondary laptop / PC on the same Wi-Fi or LAN.
+3. On the login screen of the secondary system, click the IP badge button in the top right corner and enter the Main PC's Wi-Fi IP address (e.g., 192.168.1.50:8889), test connection, and click Save & Connect.

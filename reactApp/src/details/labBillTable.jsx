@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Header from '../common/header';
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8889';
 
 const LabBillTable = () => {
   const navigate = useNavigate();
+  const API_URL = getApiBaseUrl();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(false);
   const [contactFilter, setContactFilter] = useState('');
@@ -25,7 +24,7 @@ const LabBillTable = () => {
     currentData.push({ _id: `placeholder-${currentData.length}`, isPlaceholder: true });
   }
 
-  const fetchBills = async (contact) => {
+  const fetchBills = React.useCallback(async (contact) => {
     setLoading(true);
     try {
       const q = contact ? `?contact=${encodeURIComponent(contact)}` : '';
@@ -36,9 +35,9 @@ const LabBillTable = () => {
     } catch (err) {
       console.error('Failed to fetch lab bills', err);
     } finally { setLoading(false); }
-  };
+  }, [API_URL]);
 
-  useEffect(() => { fetchBills(); }, []);
+  useEffect(() => { fetchBills(); }, [fetchBills]);
 
   const editBill = (id) => { navigate('/details/lab-diagnostics', { state: { editId: id } }); };
 

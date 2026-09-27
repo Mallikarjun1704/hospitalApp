@@ -13,15 +13,14 @@ const DUMMY_DATA = Array.from({ length: 5 }).map((_, i) => ({
 
 export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onView }) {
   const isAdmin = localStorage.getItem('userType') === 'admin';
-  const formatIsoDate = (val) => {
+  const formatIsoDate = (val, time) => {
     if (!val) return '';
     try {
-      // Construct a Date and return ISO string (UTC) to avoid local timezone shifting the day
       const d = new Date(val);
-      if (isNaN(d)) return String(val);
-      return d.toISOString();
+      const dateStr = isNaN(d) ? String(val) : d.toISOString().split('T')[0];
+      return time ? `${dateStr} (${time})` : dateStr;
     } catch (err) {
-      return String(val);
+      return time ? `${String(val)} (${time})` : String(val);
     }
   };
   const [pageSize, setPageSize] = useState(10);
@@ -94,7 +93,7 @@ export default function PatientTable({ data = DUMMY_DATA, onEdit, onDelete, onVi
                   <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && r.age}</td>
                   <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.contact || r.contactNumber)}</td>
                   <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && r.ipdNumber}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.date ? formatIsoDate(r.date) : formatIsoDate(r.admissionDate))}</td>
+                  <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.date ? formatIsoDate(r.date, r.time) : formatIsoDate(r.admissionDate, r.admissionTime))}</td>
                   <td className="px-4 py-2 text-sm text-gray-700">{!r.isEmpty && (r.consultDoctor || r.consultantName)}</td>
                   {(isAdmin || onView) && (
                     <td className="px-4 py-2 text-sm text-gray-700">

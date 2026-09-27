@@ -11,3 +11,135 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Hide number input spinners globally (Chrome, Safari, Edge, Opera) */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide number input spinners globally (Firefox) */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
+/* ==========================================================================
+   Print Layout Styles for Pharmacy, Lab, and Hospital Bill Modules
+   ========================================================================== */
+@media print {
+  /* Hide non-printable elements */
+  .no-print,
+  nav,
+  header,
+  .btn-tactile,
+  button,
+  .pagination,
+  input[type="button"],
+  input[type="submit"] {
+    display: none !important;
+  }
+
+  /* Reset body and page margins for print */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
+  /* Flexible Print Container: Flows naturally without forced breaks */
+  .printable-bill-wrapper,
+  .print-bill-container {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: auto !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  /* Bill copy container: scales dynamically to fit single page */
+  .bill-copy-container,
+  .bill-copy-block {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Dynamic overflow: natural flow between copies (NO forced page-break-before: always) */
+  .bill-copy-container + .bill-copy-container,
+  .bill-copy-block + .bill-copy-block {
+    page-break-before: auto !important;
+    break-before: auto !important;
+  }
+
+  /* Dashed Cut Line Divider between Patient Copy and Hospital Copy */
+  .bill-cut-divider,
+  .bill-copy-separator {
+    display: block !important;
+    width: 100% !important;
+    border-top: 1.5px dashed #9ca3af !important;
+    margin: 8px 0 !important;
+    position: relative !important;
+    text-align: center !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .bill-cut-divider::after,
+  .bill-copy-separator::after {
+    content: "✂ - - - - - - - - - - - - - - - - - - - - - - - Cut Here - - - - - - - - - - - - - - - - - - - - - - - ✂";
+    font-size: 8pt;
+    color: #4b5563;
+    background: #ffffff;
+    padding: 0 8px;
+    position: relative;
+    top: -9px;
+  }
+
+  /* Dynamic table sizing in print mode */
+  table {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  td, th {
+    padding: 3px 6px !important;
+    font-size: 8.5pt !important;
+  }
+}
+
+

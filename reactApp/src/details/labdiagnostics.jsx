@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { generateBillPDF } from '../utils/pdfGenerator';
 import 'tailwindcss/tailwind.css';
 import Header from '../common/header';
 import { useNavigate, useLocation } from "react-router-dom";
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getApiBaseUrl } from '../utils/api';
 
 const Labdiagonstics = () => {
+  const API_URL = getApiBaseUrl();
   const [data, setData] = useState({
     name: '',
     contact: '',
@@ -34,21 +34,21 @@ const Labdiagonstics = () => {
     }
     const fetchTests = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labtests`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_URL}/api/v1/labtests`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const list = await res.json();
         setTests(list || []);
       } catch (err) { }
     };
     fetchTests();
-  }, []);
+  }, [API_URL]);
 
   const loadBill = React.useCallback(async (id) => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labbills/${id}`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_URL}/api/v1/labbills/${id}`, { headers: getAuthHeaders() });
       if (!res.ok) return;
       const bill = await res.json();
-      const patientResp = bill.contact ? await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
+      const patientResp = bill.contact ? await fetch(`${API_URL}/api/v1/patients/filter?contact=${encodeURIComponent(bill.contact)}`, { headers: getAuthHeaders() }) : null;
       let patient = null;
       if (patientResp && patientResp.ok) patient = await patientResp.json();
 
@@ -79,7 +79,7 @@ const Labdiagonstics = () => {
         netPayable: bill.netPayable || 0,
       });
     } catch (err) { }
-  }, []);
+  }, [API_URL]);
 
   useEffect(() => {
     if (location?.state?.editId) {
@@ -93,14 +93,14 @@ const Labdiagonstics = () => {
     if (!val) return;
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/patients/filter?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_URL}/api/v1/patients/filter?contact=${encodeURIComponent(val)}`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const p = await res.json();
         if (p) setData(prev => ({ ...prev, name: p.name || prev.name, age: p.age || prev.age, ipdNumber: p.ipdNumber || prev.ipdNumber }));
       } catch (e) { /* ignore */ }
     }, 400);
     return () => clearTimeout(t);
-  }, [data.contact]);
+  }, [data.contact, API_URL]);
 
   const handleInputChange = (field, value) => {
     setData({ ...data, [field]: value });
@@ -164,6 +164,11 @@ const Labdiagonstics = () => {
   const saveBill = async () => {
     try {
       if (!data.contact || !data.name) return alert('Name and contact required');
+
+      if (!window.confirm(isEdit ? 'Are you sure you want to update this lab bill and download the PDF?' : 'Are you sure you want to save this lab bill and download the PDF?')) {
+        return;
+      }
+
       const toISODate = (val) => {
         if (!val) return undefined;
         // if already ISO
@@ -199,16 +204,24 @@ const Labdiagonstics = () => {
       // if editing an existing bill, perform PUT
       if (location && location.state && location.state.editId) {
         const id = location.state.editId;
-        const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labbills/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+        const res = await fetch(`${API_URL}/api/v1/labbills/${id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(payload) });
         if (!res.ok) { const e = await res.json(); return alert('Failed to update: ' + (e.error || res.statusText)); }
-        alert('Updated lab bill');
+        
+        // Immediately generate and download the PDF
+        await generatePDF();
+
+        alert('Updated lab bill successfully');
         navigate('/details/lab-bill/table');
         return;
       }
 
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8889'}/api/v1/labbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+      const res = await fetch(`${API_URL}/api/v1/labbills`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json(); return alert('Failed to save: ' + (e.error || res.statusText)); }
-      alert('Saved lab bill');
+
+      // Immediately generate and download the PDF
+      await generatePDF();
+
+      alert('Saved lab bill successfully');
       navigate('/details/lab-bill/table');
     } catch (err) { alert('Error saving: ' + err.message); }
   };
@@ -249,93 +262,49 @@ const Labdiagonstics = () => {
   }
 
   const generatePDF = async () => {
-    const billContent = document.querySelector('#bill');
-    const noPrintElements = document.querySelectorAll('.no-print');
-    const allInputs = billContent.querySelectorAll('textarea, input, select');
+    const validServices = data.services.filter(s => (s.service && s.service.trim() !== '') || (s.testCode && s.testCode.trim() !== ''));
 
-    // Create a temporary label for the copy type
-    const copyLabel = document.createElement('div');
-    copyLabel.style.textAlign = 'right';
-    copyLabel.style.fontWeight = 'bold';
-    copyLabel.style.padding = '5px 20px';
-    copyLabel.style.fontSize = '16px';
-    copyLabel.style.color = '#333';
-    billContent.prepend(copyLabel);
-
-    // Store original styles
-    const originalStyles = [];
-    allInputs.forEach(el => {
-      originalStyles.push({
-        el,
-        height: el.style.height,
-        overflow: el.style.overflow
-      });
+    await generateBillPDF({
+      title: 'Lab Cash Bill',
+      fileName: 'lab-bill',
+      patientFields: [
+        { label: 'Name', value: data.name },
+        { label: 'Contact', value: data.contact },
+        { label: 'Age', value: data.age },
+        { label: 'Date of Admission', value: data.admissionDate },
+        { label: 'Place', value: data.place },
+        { label: 'Patient ID', value: data.ipdNumber || patientIdCounter },
+        { label: 'Date of Discharge', value: data.dischargeDate },
+      ],
+      columns: [
+        { header: 'No', key: 'no', width: 12 },
+        { header: 'Test Code', key: 'testCode', width: 28 },
+        { header: 'Test Name', key: 'testName' },
+        { header: 'Price', key: 'price', width: 22 },
+        { header: 'Qty', key: 'quantity', width: 15 },
+        { header: 'CGST(%)', key: 'cgst', width: 18 },
+        { header: 'SGST(%)', key: 'sgst', width: 18 },
+        { header: 'Total', key: 'total', width: 25 },
+      ],
+      rows: validServices.map(s => ({
+        no: String(s.no),
+        testCode: s.testCode || '',
+        testName: s.testName || '',
+        price: String(s.price),
+        quantity: String(s.quantity),
+        cgst: String(s.cgst || 0),
+        sgst: String(s.sgst || 0),
+        total: String(s.total),
+      })),
+      totals: [
+        { label: 'Total CGST:', value: `Rs. ${Number(data.totalCgst || 0).toFixed(2)}` },
+        { label: 'Total SGST:', value: `Rs. ${Number(data.totalSgst || 0).toFixed(2)}` },
+        { label: 'Total:', value: `Rs. ${data.total || '0'}` },
+        { label: 'Advance Payment:', value: data.advancePayment || 'nil' },
+        { label: 'Net Amount Payable:', value: `Rs. ${data.netPayable || '0'}` },
+      ],
+      copies: ['PATIENT COPY', 'HOSPITAL COPY'],
     });
-
-    // Hide no-print elements
-    noPrintElements.forEach((el) => {
-      el.dataset.origDisplay = el.style.display;
-      el.style.display = 'none';
-    });
-
-    try {
-      // Expand inputs
-      allInputs.forEach(el => {
-        el.style.height = 'auto';
-        el.style.height = (el.scrollHeight + 2) + 'px';
-        el.style.overflow = 'visible';
-      });
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const captureCopy = async (label) => {
-        copyLabel.textContent = label;
-        const canvas = await html2canvas(billContent, {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          windowWidth: billContent.scrollWidth,
-        });
-        return canvas.toDataURL('image/png', 1.0);
-      };
-
-      // Patient Copy
-      const imgData1 = await captureCopy('PATIENT COPY');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgProps = pdf.getImageProperties(imgData1);
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-      // Hospital Copy
-      pdf.addPage();
-      const imgData2 = await captureCopy('HOSPITAL COPY');
-      pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-      pdf.save(`lab-bill-${Date.now()}.pdf`);
-    } catch (err) {
-      console.error('PDF generation failed:', err);
-      alert('Failed to generate PDF');
-    } finally {
-      // Remove temporary label
-      if (copyLabel.parentNode) {
-        copyLabel.parentNode.removeChild(copyLabel);
-      }
-
-      // Restore styles
-      originalStyles.forEach(item => {
-        item.el.style.height = item.height;
-        item.el.style.overflow = item.overflow;
-      });
-
-      // Restore no-print elements
-      noPrintElements.forEach((el) => {
-        el.style.display = el.dataset.origDisplay || '';
-      });
-    }
 
     const newPatientId = patientIdCounter + 1;
     setPatientIdCounter(newPatientId);
@@ -474,12 +443,6 @@ const Labdiagonstics = () => {
           className="px-8 py-2 bg-rose-600 text-white rounded btn-tactile hover:bg-rose-700 font-medium shadow-md no-print ml-4"
         >
           Remove Last Row
-        </button>
-        <button
-          onClick={generatePDF}
-          className="px-8 py-2 bg-indigo-600 text-white rounded btn-tactile hover:bg-indigo-700 font-medium shadow-md no-print ml-4"
-        >
-          Download PDF
         </button>
         <button
           onClick={handleGoBack}
